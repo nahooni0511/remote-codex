@@ -7,6 +7,15 @@ const state = {
   projectExpanded: {},
   threadPageSize: {},
   projectDraft: null,
+  authFlow: {
+    pendingAuthId: null,
+    appName: "",
+    apiId: "",
+    apiHash: "",
+    phoneNumber: "",
+    requiresPassword: false,
+    passwordHint: "",
+  },
   threadCache: new Map(),
   flash: null,
   setupError: null,
@@ -952,8 +961,8 @@ function applyRouteState(route) {
     state.selectedThreadId = null;
     state.projectDraft = {
       id: null,
+      name: "",
       folderPath: "",
-      telegramChatId: "",
       connection: null,
     };
     return;
@@ -1034,61 +1043,92 @@ function render() {
 }
 
 function renderSetup() {
-  primeDiscoveryContext("setup", "setup", {
-    telegramChatId: discoveryRuntime.setup.selectedChatId,
-    telegramChatTitle: discoveryRuntime.setup.selectedChatTitle,
-    verification: discoveryRuntime.setup.verification,
-  });
-
   appRoot.innerHTML = `
     <main class="app-shell">
       <section class="setup-layout">
         <article class="setup-hero app-card">
           <div>
             <span class="setup-kicker">Codex x Telegram</span>
-            <h1>프로젝트와 쓰레드를 Telegram topic에 고정 매핑합니다.</h1>
-            <p>이 앱은 기존 Telegram forum supergroup을 연결하고, Telegram topic 메시지를 실제 Codex CLI 세션으로 이어주는 관리 앱입니다.</p>
+            <h1>내 Telegram 계정으로 로그인해 forum supergroup을 직접 만듭니다.</h1>
+            <p>이제 Bot API 대신 MTProto 사용자 세션으로 동작합니다. 웹에서 보낸 메시지는 로그인한 Telegram 사용자 이름으로 전송됩니다.</p>
             <div class="checklist">
-              <div class="check-item">Codex project 1개 = Telegram supergroup 1개</div>
-              <div class="check-item">Codex thread 1개 = Telegram topic 1개</div>
-              <div class="check-item">그룹은 자동 생성하지 않고, 사용자가 미리 만든 forum supergroup을 연결합니다.</div>
+              <div class="check-item">로그인 완료 후 새 프로젝트를 만들면 forum supergroup이 자동 생성됩니다.</div>
+              <div class="check-item">프로젝트 생성에는 그룹 이름과 로컬 폴더 경로만 필요합니다.</div>
+              <div class="check-item">웹에서 보내는 메시지는 내 계정으로 topic에 기록됩니다.</div>
             </div>
           </div>
-          <p>초기 설정이 끝나면 Telegram polling이 자동 시작되고, topic 메시지가 Codex에 전달됩니다.</p>
+          <p>Telegram API ID와 API Hash는 <code>my.telegram.org</code>에서 발급받아야 합니다.</p>
         </article>
         <section class="setup-form app-card">
-          <h2>초기 설정</h2>
-          <p>프로젝트 이름은 Telegram 그룹 제목을 그대로 사용합니다. chat ID를 직접 입력하지 않고 Hello World 탐색으로 연결 대상을 찾습니다.</p>
+          <h2>Telegram 로그인</h2>
+          <p>API 키와 전화번호로 로그인 코드를 요청하고, 필요하면 2단계 인증 비밀번호까지 입력합니다.</p>
           ${state.setupError ? `<div class="error-banner">${escapeHtml(state.setupError)}</div>` : ""}
           ${state.setupSuccess ? `<div class="success-banner">${escapeHtml(state.setupSuccess)}</div>` : ""}
-          <form id="setup-form" class="form-grid">
+          <form id="auth-send-code-form" class="form-grid">
             <label class="form-field">
               <span>앱 이름</span>
-              <input name="appName" placeholder="예: Codex Thread Manager" required />
+              <input name="appName" value="${escapeHtml(state.authFlow.appName)}" placeholder="예: Codex Thread Manager" required />
             </label>
             <label class="form-field">
-              <span>Telegram bot token</span>
-              <input id="setup-bot-token" name="botToken" placeholder="123456:ABCDEF..." required />
+              <span>Telegram API ID</span>
+              <input name="apiId" value="${escapeHtml(state.authFlow.apiId)}" placeholder="123456" required />
             </label>
             <label class="form-field">
-              <div class="field-row">
-                <span>첫 번째 Codex project 로컬 폴더 경로</span>
-                <button id="setup-folder-browser-toggle" class="secondary-btn" type="button">폴더 탐색</button>
-              </div>
-              <input id="setup-folder-path" name="firstProjectFolderPath" placeholder="/absolute/path/to/project" required />
+              <span>Telegram API Hash</span>
+              <input name="apiHash" value="${escapeHtml(state.authFlow.apiHash)}" placeholder="0123456789abcdef..." required />
             </label>
-            ${renderTelegramGuide("setup", discoveryRuntime.setup.selectedChatId)}
-            ${renderVerificationSummary("setup")}
-            <button class="primary-btn" type="submit">설정 완료</button>
+            <label class="form-field">
+              <span>전화번호</span>
+              <input name="phoneNumber" value="${escapeHtml(state.authFlow.phoneNumber)}" placeholder="+821012345678" required />
+            </label>
+            <button class="primary-btn" type="submit">
+              ${state.authFlow.pendingAuthId ? "코드 다시 보내기" : "로그인 코드 보내기"}
+            </button>
           </form>
+          ${
+            state.authFlow.pendingAuthId
+              ? `
+                <div class="panel-block">
+                  <h3 class="panel-title">코드 확인</h3>
+                  <p class="panel-subtitle">${escapeHtml(state.authFlow.phoneNumber)} 로 받은 Telegram 코드를 입력하세요.</p>
+                  <form id="auth-verify-code-form" class="form-grid">
+                    <label class="form-field">
+                      <span>로그인 코드</span>
+                      <input name="phoneCode" placeholder="12345" required />
+                    </label>
+                    <button class="primary-btn" type="submit">코드 확인</button>
+                  </form>
+                </div>
+              `
+              : ""
+          }
+          ${
+            state.authFlow.pendingAuthId && state.authFlow.requiresPassword
+              ? `
+                <div class="panel-block">
+                  <h3 class="panel-title">2단계 인증</h3>
+                  <p class="panel-subtitle">비밀번호 힌트: ${escapeHtml(state.authFlow.passwordHint || "-")}</p>
+                  <form id="auth-verify-password-form" class="form-grid">
+                    <label class="form-field">
+                      <span>Telegram 2FA 비밀번호</span>
+                      <input name="password" type="password" required />
+                    </label>
+                    <button class="primary-btn" type="submit">로그인 완료</button>
+                  </form>
+                </div>
+              `
+              : ""
+          }
         </section>
       </section>
     </main>
   `;
 
-  document.getElementById("setup-form").addEventListener("submit", handleSetupSubmit);
-  bindFolderBrowsers();
-  bindChatDiscoveryControls();
+  document.getElementById("auth-send-code-form").addEventListener("submit", handleSetupSubmit);
+  document.getElementById("auth-verify-code-form")?.addEventListener("submit", handleAuthVerifyCode);
+  document
+    .getElementById("auth-verify-password-form")
+    ?.addEventListener("submit", handleAuthVerifyPassword);
 }
 
 function renderMain() {
@@ -1129,11 +1169,6 @@ function renderMain() {
               <button id="refresh-btn" class="ghost-btn" type="button">새로고침</button>
             </div>
           </div>
-          ${
-            state.bootstrap.settings.telegramPollingError
-              ? `<div class="workspace-inline-banner error-banner">${escapeHtml(state.bootstrap.settings.telegramPollingError)}</div>`
-              : ""
-          }
           <div class="workspace-content">
             ${renderContentPanel(selectedProject, selectedThread)}
           </div>
@@ -1273,7 +1308,6 @@ function renderMain() {
   }
 
   bindFolderBrowsers();
-  bindChatDiscoveryControls();
   bindMessageComposer();
 }
 
@@ -1296,8 +1330,8 @@ function renderContentPanel(project, thread) {
     return renderProjectPanel(
       {
         id: project.id,
+        name: project.name,
         folderPath: project.folderPath,
-        telegramChatId: project.connection?.telegramChatId || "",
         connection: project.connection,
       },
       false,
@@ -1312,27 +1346,28 @@ function renderContentPanel(project, thread) {
 }
 
 function renderProjectPanel(project, isNew) {
-  primeDiscoveryContext("project", isNew ? "project:new" : `project:${project?.id || "none"}`, {
-    telegramChatId: project?.telegramChatId || "",
-    telegramChatTitle: project?.connection?.telegramChatTitle || "",
-    verification: project?.connection
-      ? {
-          verification: project.connection,
-          derivedProjectName:
-            project.connection.telegramChatTitle || project.connection.telegramChatId,
-        }
-      : null,
-  });
-
-  const connection = project?.connection || null;
   return `
     <section class="panel">
       <div class="panel-block">
         <h2 class="panel-title">${isNew ? "새 project" : "Project 상세"}</h2>
-        <p class="panel-subtitle">폴더와 Telegram 연결만 설정합니다.</p>
+        <p class="panel-subtitle">${isNew ? "그룹 이름과 폴더 경로만 입력하면 forum supergroup을 자동으로 만들고 연결합니다." : "생성된 Telegram forum supergroup과 연결된 프로젝트입니다."}</p>
         ${state.projectError ? `<div class="error-banner">${escapeHtml(state.projectError)}</div>` : ""}
         ${state.projectSuccess ? `<div class="success-banner">${escapeHtml(state.projectSuccess)}</div>` : ""}
+        ${
+          !isNew && project?.connection && !project.connection.telegramAccessHash
+            ? `<div class="error-banner">이 프로젝트는 이전 Bot API 연결 데이터입니다. 새 프로젝트로 다시 생성하는 편이 안전합니다.</div>`
+            : ""
+        }
         <form id="project-form" class="form-grid" data-project-id="${project?.id || ""}">
+          <label class="form-field">
+            <span>그룹 이름</span>
+            <input
+              name="groupName"
+              value="${escapeHtml(project?.name || "")}"
+              ${isNew ? `placeholder="예: Remote Codex"` : "readonly"}
+              required
+            />
+          </label>
           <div class="split-grid">
             <label class="form-field">
               <div class="field-row">
@@ -1342,8 +1377,15 @@ function renderProjectPanel(project, isNew) {
               <input id="project-folder-path" name="folderPath" value="${escapeHtml(project?.folderPath || "")}" placeholder="/absolute/path" required />
             </label>
           </div>
-          ${renderTelegramGuide("project", discoveryRuntime.project.selectedChatId || project?.telegramChatId || "")}
-          ${renderVerificationSummary("project", connection)}
+          ${
+            !isNew && project?.connection?.telegramChatTitle
+              ? `
+                <div class="panel-block">
+                  <div><strong>Telegram 그룹:</strong> ${escapeHtml(project.connection.telegramChatTitle)}</div>
+                </div>
+              `
+              : ""
+          }
           <div class="toolbar">
             <button class="primary-btn" type="submit">${isNew ? "project 생성" : "저장"}</button>
             ${
@@ -1395,7 +1437,6 @@ function renderThreadPanel(project, thread) {
       </div>
       <div class="composer-card panel-block">
         <form id="message-form" class="composer-form" data-thread-id="${thread.id}">
-          <input type="hidden" name="role" value="Web user" />
           <textarea
             id="message-input"
             class="composer-input"
@@ -1421,17 +1462,110 @@ async function handleSetupSubmit(event) {
   const form = new FormData(event.currentTarget);
   const payload = Object.fromEntries(form.entries());
 
-  if (!String(payload.telegramChatId || "").trim()) {
-    state.setupError = "먼저 Hello World 탐색으로 Telegram supergroup을 선택하세요.";
+  try {
+    const result = await apiFetch("/api/auth/send-code", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    state.authFlow = {
+      pendingAuthId: result.pendingAuthId,
+      appName: String(payload.appName || ""),
+      apiId: String(payload.apiId || ""),
+      apiHash: String(payload.apiHash || ""),
+      phoneNumber: String(payload.phoneNumber || ""),
+      requiresPassword: false,
+      passwordHint: "",
+    };
+    state.setupSuccess = "Telegram 로그인 코드를 보냈습니다.";
+    render();
+  } catch (error) {
+    state.setupError = error.message;
+    render();
+  }
+}
+
+async function handleAuthVerifyCode(event) {
+  event.preventDefault();
+  state.setupError = null;
+  state.setupSuccess = null;
+
+  if (!state.authFlow.pendingAuthId) {
+    state.setupError = "먼저 로그인 코드를 요청하세요.";
     render();
     return;
   }
 
+  const form = new FormData(event.currentTarget);
+  const payload = Object.fromEntries(form.entries());
+
   try {
-    await apiFetch("/api/setup", {
+    const result = await apiFetch("/api/auth/verify-code", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        pendingAuthId: state.authFlow.pendingAuthId,
+        appName: state.authFlow.appName,
+        phoneCode: payload.phoneCode,
+      }),
     });
+
+    if (result.requiresPassword) {
+      state.authFlow.requiresPassword = true;
+      state.authFlow.passwordHint = result.passwordHint || "";
+      state.setupSuccess = "2단계 인증 비밀번호가 필요합니다.";
+      render();
+      return;
+    }
+
+    state.authFlow = {
+      pendingAuthId: null,
+      appName: "",
+      apiId: "",
+      apiHash: "",
+      phoneNumber: "",
+      requiresPassword: false,
+      passwordHint: "",
+    };
+    await refreshApp();
+  } catch (error) {
+    state.setupError = error.message;
+    render();
+  }
+}
+
+async function handleAuthVerifyPassword(event) {
+  event.preventDefault();
+  state.setupError = null;
+  state.setupSuccess = null;
+
+  if (!state.authFlow.pendingAuthId) {
+    state.setupError = "먼저 로그인 코드를 요청하세요.";
+    render();
+    return;
+  }
+
+  const form = new FormData(event.currentTarget);
+  const payload = Object.fromEntries(form.entries());
+
+  try {
+    await apiFetch("/api/auth/verify-password", {
+      method: "POST",
+      body: JSON.stringify({
+        pendingAuthId: state.authFlow.pendingAuthId,
+        appName: state.authFlow.appName,
+        password: payload.password,
+      }),
+    });
+
+    state.authFlow = {
+      pendingAuthId: null,
+      appName: "",
+      apiId: "",
+      apiHash: "",
+      phoneNumber: "",
+      requiresPassword: false,
+      passwordHint: "",
+    };
     await refreshApp();
   } catch (error) {
     state.setupError = error.message;
@@ -1448,12 +1582,6 @@ async function handleProjectSave(event) {
   const form = new FormData(formElement);
   const payload = Object.fromEntries(form.entries());
   const projectId = formElement.dataset.projectId;
-
-  if (!String(payload.telegramChatId || "").trim()) {
-    state.projectError = "먼저 Hello World 탐색으로 Telegram supergroup을 선택하세요.";
-    render();
-    return;
-  }
 
   try {
     if (projectId) {
@@ -1587,9 +1715,8 @@ async function handleMessageSubmit(event) {
       body: JSON.stringify(payload),
     });
 
-    state.messageSuccess = "메시지를 Codex로 전달하고 Telegram topic까지 왕복 처리했습니다.";
+    state.messageSuccess = null;
     formElement.reset();
-    formElement.elements.role.value = "Web user";
     resizeComposerTextarea(formElement.querySelector("textarea[name='content']"));
     await loadThreadMessages(threadId);
     await refreshApp();

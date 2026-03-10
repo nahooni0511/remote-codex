@@ -5,16 +5,24 @@ import Database from "better-sqlite3";
 
 const DEFAULT_DATABASE_PATH = "./data/app.db";
 
+export interface TelegramAuthRecord {
+  appName: string | null;
+  apiId: number | null;
+  apiHash: string | null;
+  phoneNumber: string | null;
+  sessionString: string | null;
+  userId: string | null;
+  userName: string | null;
+  isAuthenticated: boolean;
+}
+
 export interface ConnectionRecord {
   id: number;
   projectId: number;
   telegramChatId: string | null;
+  telegramAccessHash: string | null;
   telegramChatTitle: string | null;
   forumEnabled: boolean;
-  botJoined: boolean;
-  botIsAdmin: boolean;
-  canManageTopics: boolean;
-  lastVerifiedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -70,12 +78,9 @@ type ConnectionRow = {
   id: number;
   project_id: number;
   telegram_chat_id: string | null;
+  telegram_access_hash: string | null;
   telegram_chat_title: string | null;
   forum_enabled: number;
-  bot_joined: number;
-  bot_is_admin: number;
-  can_manage_topics: number;
-  last_verified_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -115,17 +120,6 @@ function ensureParentDirectory(filePath: string): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
 
-function columnExists(tableName: string, columnName: string): boolean {
-  const rows = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
-  return rows.some((row) => row.name === columnName);
-}
-
-function ensureColumn(tableName: string, columnName: string, definition: string): void {
-  if (!columnExists(tableName, columnName)) {
-    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${definition}`);
-  }
-}
-
 export function nowIso(): string {
   return new Date().toISOString();
 }
@@ -157,12 +151,9 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL UNIQUE,
     telegram_chat_id TEXT,
+    telegram_access_hash TEXT,
     telegram_chat_title TEXT,
     forum_enabled INTEGER NOT NULL DEFAULT 0,
-    bot_joined INTEGER NOT NULL DEFAULT 0,
-    bot_is_admin INTEGER NOT NULL DEFAULT 0,
-    can_manage_topics INTEGER NOT NULL DEFAULT 0,
-    last_verified_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
@@ -197,16 +188,32 @@ db.exec(`
   );
 `);
 
-ensureColumn("threads", "telegram_topic_name", "telegram_topic_name TEXT");
-ensureColumn("threads", "codex_session_id", "codex_session_id TEXT");
-ensureColumn("threads", "origin", "origin TEXT NOT NULL DEFAULT 'app'");
-ensureColumn("messages", "source", "source TEXT NOT NULL DEFAULT 'web'");
-ensureColumn("messages", "sender_name", "sender_name TEXT");
-ensureColumn("messages", "sender_telegram_user_id", "sender_telegram_user_id TEXT");
-ensureColumn("messages", "telegram_message_id", "telegram_message_id INTEGER");
-ensureColumn("messages", "error_text", "error_text TEXT");
+function columnExists(tableName: string, columnName: string): boolean {
+  const rows = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+  return rows.some((row) => row.name === columnName);
+}
+
+function ensureColumn(tableName: string, definition: string): void {
+  const columnName = definition.split(" ")[0];
+  if (!columnExists(tableName, columnName)) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${definition}`);
+  }
+}
+
+ensureColumn("project_telegram_connections", "telegram_access_hash TEXT");
+ensureColumn("project_telegram_connections", "forum_enabled INTEGER NOT NULL DEFAULT 0");
+ensureColumn("threads", "telegram_topic_name TEXT");
+ensureColumn("threads", "codex_session_id TEXT");
+ensureColumn("threads", "origin TEXT NOT NULL DEFAULT 'app'");
+ensureColumn("threads", "status TEXT NOT NULL DEFAULT 'open'");
+ensureColumn("messages", "source TEXT NOT NULL DEFAULT 'web'");
+ensureColumn("messages", "sender_name TEXT");
+ensureColumn("messages", "sender_telegram_user_id TEXT");
+ensureColumn("messages", "telegram_message_id INTEGER");
+ensureColumn("messages", "error_text TEXT");
 
 db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_threads_project_id ON threads(project_id);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_threads_project_topic_unique ON threads(project_id, telegram_topic_id);
   CREATE INDEX IF NOT EXISTS idx_messages_thread_id ON messages(thread_id);
@@ -215,7 +222,7 @@ db.exec(`
     WHERE telegram_message_id IS NOT NULL;
 `);
 
-function mapConnection(row: ConnectionRow | undefined): ConnectionRecord | null {
+function mapConnection(row?: ConnectionRow): ConnectionRecord | null {
   if (!row) {
     return null;
   }
@@ -224,12 +231,9 @@ function mapConnection(row: ConnectionRow | undefined): ConnectionRecord | null 
     id: row.id,
     projectId: row.project_id,
     telegramChatId: row.telegram_chat_id,
+    telegramAccessHash: row.telegram_access_hash,
     telegramChatTitle: row.telegram_chat_title,
     forumEnabled: Boolean(row.forum_enabled),
-    botJoined: Boolean(row.bot_joined),
-    botIsAdmin: Boolean(row.bot_is_admin),
-    canManageTopics: Boolean(row.can_manage_topics),
-    lastVerifiedAt: row.last_verified_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -276,15 +280,10 @@ function mapMessage(row: MessageRow): MessageRecord {
   };
 }
 
-const selectProjectRow = db.prepare("SELECT * FROM projects WHERE id = ?");
-const selectConnectionRow = db.prepare("SELECT * FROM project_telegram_connections WHERE project_id = ?");
-const selectThreadRow = db.prepare("SELECT * FROM threads WHERE id = ?");
-
 export function getSetting(key: string): string | null {
   const row = db.prepare("SELECT value FROM global_settings WHERE key = ?").get(key) as
     | { value: string }
     | undefined;
-
   return row?.value ?? null;
 }
 
@@ -299,94 +298,113 @@ export function setSetting(key: string, value: string): void {
   ).run(key, value, nowIso());
 }
 
-export function isSetupComplete(): boolean {
+export function getTelegramAuth(): TelegramAuthRecord {
   const appName = getSetting("app_name");
-  const botToken = getSetting("bot_token");
-  const projectCountRow = db.prepare("SELECT COUNT(*) AS count FROM projects").get() as { count: number };
+  const apiId = Number(getSetting("telegram_api_id") || 0) || null;
+  const apiHash = getSetting("telegram_api_hash");
+  const phoneNumber = getSetting("telegram_phone_number");
+  const sessionString = getSetting("telegram_session_string");
+  const userId = getSetting("telegram_user_id");
+  const userName = getSetting("telegram_user_name");
 
-  return Boolean(appName && botToken && projectCountRow.count > 0);
+  return {
+    appName,
+    apiId,
+    apiHash,
+    phoneNumber,
+    sessionString,
+    userId,
+    userName,
+    isAuthenticated: Boolean(appName && apiId && apiHash && phoneNumber && sessionString),
+  };
+}
+
+export function saveTelegramAuth(input: {
+  appName: string;
+  apiId: number;
+  apiHash: string;
+  phoneNumber: string;
+  sessionString: string;
+  userId: string;
+  userName: string;
+}): void {
+  setSetting("app_name", input.appName);
+  setSetting("telegram_api_id", String(input.apiId));
+  setSetting("telegram_api_hash", input.apiHash);
+  setSetting("telegram_phone_number", input.phoneNumber);
+  setSetting("telegram_session_string", input.sessionString);
+  setSetting("telegram_user_id", input.userId);
+  setSetting("telegram_user_name", input.userName);
+}
+
+export function clearTelegramAuth(): void {
+  const keys = [
+    "telegram_api_id",
+    "telegram_api_hash",
+    "telegram_phone_number",
+    "telegram_session_string",
+    "telegram_user_id",
+    "telegram_user_name",
+  ];
+
+  for (const key of keys) {
+    db.prepare("DELETE FROM global_settings WHERE key = ?").run(key);
+  }
+}
+
+export function isSetupComplete(): boolean {
+  return getTelegramAuth().isAuthenticated;
 }
 
 export function getPublicSettings(): {
   appName: string | null;
-  telegramPollingEnabled: boolean;
   codexBin: string;
+  telegramUserName: string | null;
+  telegramPhoneNumber: string | null;
 } {
+  const auth = getTelegramAuth();
+
   return {
-    appName: getSetting("app_name"),
-    telegramPollingEnabled: true,
+    appName: auth.appName,
     codexBin: process.env.CODEX_BIN?.trim() || "codex",
+    telegramUserName: auth.userName,
+    telegramPhoneNumber: auth.phoneNumber,
   };
 }
 
-function ensureConnectionRow(projectId: number): ConnectionRecord {
-  const existing = selectConnectionRow.get(projectId) as ConnectionRow | undefined;
+function ensureConnectionRow(projectId: number): void {
+  const existing = db
+    .prepare("SELECT id FROM project_telegram_connections WHERE project_id = ?")
+    .get(projectId) as { id: number } | undefined;
+
   if (existing) {
-    return mapConnection(existing)!;
+    return;
   }
 
   const timestamp = nowIso();
-  const result = db
-    .prepare(
-      `
-        INSERT INTO project_telegram_connections (
-          project_id,
-          telegram_chat_id,
-          telegram_chat_title,
-          forum_enabled,
-          bot_joined,
-          bot_is_admin,
-          can_manage_topics,
-          last_verified_at,
-          created_at,
-          updated_at
-        )
-        VALUES (?, NULL, NULL, 0, 0, 0, 0, NULL, ?, ?)
-      `,
-    )
-    .run(projectId, timestamp, timestamp);
-
-  return mapConnection(
-    db.prepare("SELECT * FROM project_telegram_connections WHERE id = ?").get(Number(result.lastInsertRowid)) as
-      | ConnectionRow
-      | undefined,
-  )!;
-}
-
-export function getProjectById(projectId: number): ProjectRecord | null {
-  const projectRow = selectProjectRow.get(projectId) as ProjectRow | undefined;
-  if (!projectRow) {
-    return null;
-  }
-
-  const connection = selectConnectionRow.get(projectId) as ConnectionRow | undefined;
-  return mapProject(projectRow, connection);
-}
-
-export function getProjectByTelegramChatId(telegramChatId: string): ProjectRecord | null {
-  const row = db
-    .prepare(
-      `
-        SELECT p.*
-        FROM projects p
-        INNER JOIN project_telegram_connections c ON c.project_id = p.id
-        WHERE c.telegram_chat_id = ?
-      `,
-    )
-    .get(telegramChatId) as ProjectRow | undefined;
-
-  if (!row) {
-    return null;
-  }
-
-  return getProjectById(row.id);
+  db.prepare(
+    `
+      INSERT INTO project_telegram_connections (
+        project_id,
+        telegram_chat_id,
+        telegram_access_hash,
+        telegram_chat_title,
+        forum_enabled,
+        created_at,
+        updated_at
+      )
+      VALUES (?, NULL, NULL, NULL, 0, ?, ?)
+    `,
+  ).run(projectId, timestamp, timestamp);
 }
 
 export function listProjectsTree(): ProjectTreeRecord[] {
-  const projects = db.prepare("SELECT * FROM projects ORDER BY updated_at DESC").all() as ProjectRow[];
+  const projectRows = db.prepare("SELECT * FROM projects ORDER BY updated_at DESC, id DESC").all() as ProjectRow[];
 
-  return projects.map((projectRow) => {
-    const connection = selectConnectionRow.get(projectRow.id) as ConnectionRow | undefined;
+  return projectRows.map((projectRow) => {
+    const connection = db
+      .prepare("SELECT * FROM project_telegram_connections WHERE project_id = ?")
+      .get(projectRow.id) as ConnectionRow | undefined;
     const threadRows = db
       .prepare("SELECT * FROM threads WHERE project_id = ? ORDER BY updated_at DESC, created_at DESC")
       .all(projectRow.id) as ThreadRow[];
@@ -398,7 +416,20 @@ export function listProjectsTree(): ProjectTreeRecord[] {
   });
 }
 
-export function createProject(input: { name: string; folderPath: string; telegramChatId?: string | null }): ProjectRecord {
+export function getProjectById(projectId: number): ProjectRecord | null {
+  const projectRow = db.prepare("SELECT * FROM projects WHERE id = ?").get(projectId) as ProjectRow | undefined;
+  if (!projectRow) {
+    return null;
+  }
+
+  const connection = db
+    .prepare("SELECT * FROM project_telegram_connections WHERE project_id = ?")
+    .get(projectId) as ConnectionRow | undefined;
+
+  return mapProject(projectRow, connection);
+}
+
+export function createProject(input: { name: string; folderPath: string }): ProjectRecord {
   const timestamp = nowIso();
   const result = db
     .prepare(
@@ -411,11 +442,6 @@ export function createProject(input: { name: string; folderPath: string; telegra
 
   const projectId = Number(result.lastInsertRowid);
   ensureConnectionRow(projectId);
-
-  if (input.telegramChatId !== undefined) {
-    saveProjectConnectionInput(projectId, input.telegramChatId);
-  }
-
   return getProjectById(projectId)!;
 }
 
@@ -438,51 +464,13 @@ export function updateProject(projectId: number, input: { name: string; folderPa
   return getProjectById(projectId);
 }
 
-export function saveProjectConnectionInput(projectId: number, telegramChatId: string | null): ConnectionRecord {
-  const connection = ensureConnectionRow(projectId);
-  const timestamp = nowIso();
-  const chatId = telegramChatId?.trim() || null;
-  const hasChatChanged = connection.telegramChatId !== chatId;
-
-  db.prepare(
-    `
-      UPDATE project_telegram_connections
-      SET
-        telegram_chat_id = ?,
-        telegram_chat_title = CASE WHEN ? THEN NULL ELSE telegram_chat_title END,
-        forum_enabled = CASE WHEN ? THEN 0 ELSE forum_enabled END,
-        bot_joined = CASE WHEN ? THEN 0 ELSE bot_joined END,
-        bot_is_admin = CASE WHEN ? THEN 0 ELSE bot_is_admin END,
-        can_manage_topics = CASE WHEN ? THEN 0 ELSE can_manage_topics END,
-        last_verified_at = CASE WHEN ? THEN NULL ELSE last_verified_at END,
-        updated_at = ?
-      WHERE project_id = ?
-    `,
-  ).run(
-    chatId,
-    hasChatChanged ? 1 : 0,
-    hasChatChanged ? 1 : 0,
-    hasChatChanged ? 1 : 0,
-    hasChatChanged ? 1 : 0,
-    hasChatChanged ? 1 : 0,
-    hasChatChanged ? 1 : 0,
-    timestamp,
-    projectId,
-  );
-
-  return mapConnection(selectConnectionRow.get(projectId) as ConnectionRow | undefined)!;
-}
-
-export function updateVerifiedConnection(
+export function saveProjectTelegramConnection(
   projectId: number,
   input: {
     telegramChatId: string;
+    telegramAccessHash: string;
     telegramChatTitle: string;
     forumEnabled: boolean;
-    botJoined: boolean;
-    botIsAdmin: boolean;
-    canManageTopics: boolean;
-    lastVerifiedAt: string;
   },
 ): ConnectionRecord {
   ensureConnectionRow(projectId);
@@ -493,28 +481,26 @@ export function updateVerifiedConnection(
       UPDATE project_telegram_connections
       SET
         telegram_chat_id = ?,
+        telegram_access_hash = ?,
         telegram_chat_title = ?,
         forum_enabled = ?,
-        bot_joined = ?,
-        bot_is_admin = ?,
-        can_manage_topics = ?,
-        last_verified_at = ?,
         updated_at = ?
       WHERE project_id = ?
     `,
   ).run(
     input.telegramChatId,
+    input.telegramAccessHash,
     input.telegramChatTitle,
     input.forumEnabled ? 1 : 0,
-    input.botJoined ? 1 : 0,
-    input.botIsAdmin ? 1 : 0,
-    input.canManageTopics ? 1 : 0,
-    input.lastVerifiedAt,
     timestamp,
     projectId,
   );
 
-  return mapConnection(selectConnectionRow.get(projectId) as ConnectionRow | undefined)!;
+  const row = db
+    .prepare("SELECT * FROM project_telegram_connections WHERE project_id = ?")
+    .get(projectId) as ConnectionRow | undefined;
+
+  return mapConnection(row)!;
 }
 
 export function createThread(input: {
@@ -527,8 +513,6 @@ export function createThread(input: {
   status?: string;
 }): ThreadRecord {
   const timestamp = nowIso();
-  const threadStatus = input.status ?? "open";
-  const origin = input.origin ?? "app";
   const result = db
     .prepare(
       `
@@ -552,19 +536,18 @@ export function createThread(input: {
       input.telegramTopicId,
       input.telegramTopicName ?? input.title,
       input.codexSessionId ?? null,
-      origin,
-      threadStatus,
+      input.origin ?? "app",
+      input.status ?? "open",
       timestamp,
       timestamp,
     );
 
   db.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").run(timestamp, input.projectId);
-
-  return mapThread(selectThreadRow.get(Number(result.lastInsertRowid)) as ThreadRow);
+  return getThreadById(Number(result.lastInsertRowid))!;
 }
 
 export function getThreadById(threadId: number): ThreadRecord | null {
-  const row = selectThreadRow.get(threadId) as ThreadRow | undefined;
+  const row = db.prepare("SELECT * FROM threads WHERE id = ?").get(threadId) as ThreadRow | undefined;
   return row ? mapThread(row) : null;
 }
 
@@ -572,20 +555,13 @@ export function getThreadByProjectAndTelegramTopic(projectId: number, telegramTo
   const row = db
     .prepare("SELECT * FROM threads WHERE project_id = ? AND telegram_topic_id = ?")
     .get(projectId, telegramTopicId) as ThreadRow | undefined;
-
   return row ? mapThread(row) : null;
 }
 
 export function updateThreadCodexSession(threadId: number, codexSessionId: string): ThreadRecord | null {
   const timestamp = nowIso();
   const result = db
-    .prepare(
-      `
-        UPDATE threads
-        SET codex_session_id = ?, updated_at = ?
-        WHERE id = ?
-      `,
-    )
+    .prepare("UPDATE threads SET codex_session_id = ?, updated_at = ? WHERE id = ?")
     .run(codexSessionId, timestamp, threadId);
 
   if (result.changes === 0) {
@@ -605,8 +581,7 @@ export function updateThreadTopicMetadata(
   }
 
   const nextTitle = input.title?.trim() || existing.title;
-  const nextTopicName =
-    input.telegramTopicName !== undefined ? input.telegramTopicName : existing.telegramTopicName ?? existing.title;
+  const nextTopicName = input.telegramTopicName ?? existing.telegramTopicName ?? existing.title;
   const timestamp = nowIso();
 
   db.prepare(
@@ -621,18 +596,17 @@ export function updateThreadTopicMetadata(
 }
 
 export function deleteThread(threadId: number): boolean {
-  const existing = getThreadById(threadId);
-  if (!existing) {
+  const thread = getThreadById(threadId);
+  if (!thread) {
     return false;
   }
 
-  const timestamp = nowIso();
   const result = db.prepare("DELETE FROM threads WHERE id = ?").run(threadId);
   if (result.changes === 0) {
     return false;
   }
 
-  db.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").run(timestamp, existing.projectId);
+  db.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").run(nowIso(), thread.projectId);
   return true;
 }
 
@@ -655,7 +629,6 @@ export function createMessage(input: {
   errorText?: string | null;
 }): MessageRecord {
   const timestamp = nowIso();
-  const source = input.source ?? "web";
   const result = db
     .prepare(
       `
@@ -677,7 +650,7 @@ export function createMessage(input: {
       input.threadId,
       input.role,
       input.content,
-      source,
+      input.source ?? "web",
       input.senderName ?? null,
       input.senderTelegramUserId ?? null,
       input.telegramMessageId ?? null,
@@ -691,9 +664,8 @@ export function createMessage(input: {
     db.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").run(timestamp, thread.projectId);
   }
 
-  return mapMessage(
-    db.prepare("SELECT * FROM messages WHERE id = ?").get(Number(result.lastInsertRowid)) as MessageRow,
-  );
+  const row = db.prepare("SELECT * FROM messages WHERE id = ?").get(Number(result.lastInsertRowid)) as MessageRow;
+  return mapMessage(row);
 }
 
 export function listMessagesByThread(threadId: number): MessageRecord[] {
@@ -702,46 +674,4 @@ export function listMessagesByThread(threadId: number): MessageRecord[] {
     .all(threadId) as MessageRow[];
 
   return rows.map(mapMessage);
-}
-
-export function createInitialSetup(input: {
-  appName: string;
-  botToken: string;
-  firstProjectName: string;
-  firstProjectFolderPath: string;
-  telegramChatId: string;
-  telegramChatTitle: string;
-  forumEnabled: boolean;
-  botJoined: boolean;
-  botIsAdmin: boolean;
-  canManageTopics: boolean;
-}): ProjectRecord {
-  const transaction = db.transaction(() => {
-    setSetting("app_name", input.appName);
-    setSetting("bot_token", input.botToken);
-
-    const project = createProject({
-      name: input.firstProjectName,
-      folderPath: input.firstProjectFolderPath,
-      telegramChatId: input.telegramChatId,
-    });
-
-    updateVerifiedConnection(project.id, {
-      telegramChatId: input.telegramChatId,
-      telegramChatTitle: input.telegramChatTitle,
-      forumEnabled: input.forumEnabled,
-      botJoined: input.botJoined,
-      botIsAdmin: input.botIsAdmin,
-      canManageTopics: input.canManageTopics,
-      lastVerifiedAt: nowIso(),
-    });
-
-    return getProjectById(project.id)!;
-  });
-
-  return transaction();
-}
-
-export function getBotToken(): string | null {
-  return getSetting("bot_token");
 }
