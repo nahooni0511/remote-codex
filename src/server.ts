@@ -11,6 +11,7 @@ import {
   createMessage,
   createProject,
   createThread,
+  deleteProject,
   deleteThread,
   getProjectById,
   getPublicSettings,
@@ -497,6 +498,19 @@ app.put("/api/projects/:projectId", (request, response, next) => {
         folderPath,
       }),
     );
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/projects/:projectId", (request, response, next) => {
+  try {
+    const projectId = parseNumericId(request.params.projectId);
+    if (!deleteProject(projectId)) {
+      throw new HttpError(404, "Project not found.");
+    }
+
+    response.status(204).end();
   } catch (error) {
     next(error);
   }

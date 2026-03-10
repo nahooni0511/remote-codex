@@ -1302,6 +1302,11 @@ function renderMain() {
     });
   }
 
+  const deleteProjectButton = document.getElementById("delete-project-btn");
+  if (deleteProjectButton) {
+    deleteProjectButton.addEventListener("click", handleProjectDelete);
+  }
+
   bindFolderBrowsers();
   bindMessageComposer();
 }
@@ -1386,7 +1391,7 @@ function renderProjectPanel(project, isNew) {
             ${
               isNew
                 ? `<button id="cancel-project-btn" class="ghost-btn" type="button">취소</button>`
-                : ""
+                : `<button id="delete-project-btn" class="ghost-btn" type="button">project 삭제</button>`
             }
           </div>
         </form>
@@ -1591,6 +1596,37 @@ async function handleProjectSave(event) {
       await refreshApp();
       await navigateToRoute({ name: "project", projectId: createdProject.id }, { replace: true });
     }
+  } catch (error) {
+    state.projectError = error.message;
+    render();
+  }
+}
+
+async function handleProjectDelete() {
+  const project = getSelectedProject();
+  if (!project) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `정말 "${project.name}" project를 삭제할까요?\n로컬 DB의 project, thread, message 기록이 삭제됩니다.\nTelegram supergroup 자체는 삭제하지 않습니다.`,
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  state.projectError = null;
+  state.projectSuccess = null;
+
+  try {
+    await apiFetch(`/api/projects/${project.id}`, {
+      method: "DELETE",
+    });
+
+    state.flash = "project를 삭제했습니다.";
+    state.threadCache.clear();
+    await refreshApp();
   } catch (error) {
     state.projectError = error.message;
     render();

@@ -345,6 +345,46 @@ function ensureTopicFromUpdates(updates: Api.TypeUpdates): CreatedForumTopic {
   throw new TelegramMtprotoError("생성된 forum topic 정보를 확인하지 못했습니다.");
 }
 
+async function findCreatedTopicViaLookup(
+  client: TelegramClient,
+  connection: {
+    telegramChatId: string;
+    telegramAccessHash: string;
+  },
+  title: string,
+): Promise<CreatedForumTopic | null> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const result = await client.invoke(
+      new Api.channels.GetForumTopics({
+        channel: toInputChannel(connection),
+        q: title,
+        offsetDate: 0,
+        offsetId: 0,
+        offsetTopic: 0,
+        limit: 20,
+      }),
+    );
+
+    if (result instanceof Api.messages.ForumTopics) {
+      const matchedTopics = result.topics
+        .filter((topic): topic is Api.ForumTopic => topic instanceof Api.ForumTopic)
+        .filter((topic) => topic.title === title && topic.topMessage > 0)
+        .sort((left, right) => right.date - left.date);
+
+      if (matchedTopics.length) {
+        return {
+          telegramTopicId: matchedTopics[0].topMessage,
+          title: matchedTopics[0].title,
+        };
+      }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  return null;
+}
+
 function toInputChannel(connection: {
   telegramChatId: string;
   telegramAccessHash: string;
@@ -426,7 +466,24 @@ export async function createForumTopic(
       }),
     );
 
-    return ensureTopicFromUpdates(updates);
+    const directTopic = (() => {
+      try {
+        return ensureTopicFromUpdates(updates);
+      } catch {
+        return null;
+      }
+    })();
+
+    if (directTopic) {
+      return directTopic;
+    }
+
+    const lookedUpTopic = await findCreatedTopicViaLookup(client, connection, title);
+    if (lookedUpTopic) {
+      return lookedUpTopic;
+    }
+
+    throw new TelegramMtprotoError("생성된 forum topic 정보를 확인하지 못했습니다.");
   } catch (error) {
     throw new TelegramMtprotoError(normalizeErrorMessage(error));
   }

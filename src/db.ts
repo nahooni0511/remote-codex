@@ -458,6 +458,11 @@ export function updateProject(projectId: number, input: { name: string; folderPa
   return getProjectById(projectId);
 }
 
+export function deleteProject(projectId: number): boolean {
+  const result = db.prepare("DELETE FROM projects WHERE id = ?").run(projectId);
+  return result.changes > 0;
+}
+
 export function saveProjectTelegramConnection(
   projectId: number,
   input: {
