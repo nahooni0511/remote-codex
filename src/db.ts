@@ -13,6 +13,7 @@ export interface TelegramAuthRecord {
   userId: string | null;
   userName: string | null;
   botToken: string | null;
+  botUserId: string | null;
   botUserName: string | null;
   isAuthenticated: boolean;
 }
@@ -60,7 +61,18 @@ export interface MessageRecord {
   senderTelegramUserId: string | null;
   telegramMessageId: number | null;
   errorText: string | null;
+  attachmentKind: string | null;
+  attachmentMimeType: string | null;
+  attachmentFilename: string | null;
   createdAt: string;
+}
+
+export interface MessageAttachmentRecord {
+  messageId: number;
+  kind: string;
+  path: string;
+  mimeType: string | null;
+  filename: string | null;
 }
 
 export interface ProjectTreeRecord extends ProjectRecord {
@@ -109,6 +121,10 @@ type MessageRow = {
   sender_telegram_user_id: string | null;
   telegram_message_id: number | null;
   error_text: string | null;
+  attachment_kind: string | null;
+  attachment_path: string | null;
+  attachment_mime_type: string | null;
+  attachment_filename: string | null;
   created_at: string;
 };
 
@@ -184,10 +200,28 @@ db.exec(`
     sender_telegram_user_id TEXT,
     telegram_message_id INTEGER,
     error_text TEXT,
+    attachment_kind TEXT,
+    attachment_path TEXT,
+    attachment_mime_type TEXT,
+    attachment_filename TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY (thread_id) REFERENCES threads(id) ON DELETE CASCADE
   );
 `);
+
+function ensureColumnExists(tableName: string, columnName: string, definition: string): void {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+  if (columns.some((column) => column.name === columnName)) {
+    return;
+  }
+
+  db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+}
+
+ensureColumnExists("messages", "attachment_kind", "TEXT");
+ensureColumnExists("messages", "attachment_path", "TEXT");
+ensureColumnExists("messages", "attachment_mime_type", "TEXT");
+ensureColumnExists("messages", "attachment_filename", "TEXT");
 
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at DESC);
@@ -253,6 +287,9 @@ function mapMessage(row: MessageRow): MessageRecord {
     senderTelegramUserId: row.sender_telegram_user_id,
     telegramMessageId: row.telegram_message_id,
     errorText: row.error_text,
+    attachmentKind: row.attachment_kind,
+    attachmentMimeType: row.attachment_mime_type,
+    attachmentFilename: row.attachment_filename,
     createdAt: row.created_at,
   };
 }
@@ -283,6 +320,7 @@ export function getTelegramAuth(): TelegramAuthRecord {
   const userId = getSetting("telegram_user_id");
   const userName = getSetting("telegram_user_name");
   const botToken = getSetting("telegram_bot_token");
+  const botUserId = getSetting("telegram_bot_user_id");
   const botUserName = getSetting("telegram_bot_username");
 
   return {
@@ -293,6 +331,7 @@ export function getTelegramAuth(): TelegramAuthRecord {
     userId,
     userName,
     botToken,
+    botUserId,
     botUserName,
     isAuthenticated: Boolean(apiId && apiHash && phoneNumber && sessionString && botToken),
   };
@@ -306,6 +345,7 @@ export function saveTelegramAuth(input: {
   userId: string;
   userName: string;
   botToken: string;
+  botUserId: string;
   botUserName: string;
 }): void {
   setSetting("telegram_api_id", String(input.apiId));
@@ -315,6 +355,7 @@ export function saveTelegramAuth(input: {
   setSetting("telegram_user_id", input.userId);
   setSetting("telegram_user_name", input.userName);
   setSetting("telegram_bot_token", input.botToken);
+  setSetting("telegram_bot_user_id", input.botUserId);
   setSetting("telegram_bot_username", input.botUserName);
 }
 
@@ -327,6 +368,7 @@ export function clearTelegramAuth(): void {
     "telegram_user_id",
     "telegram_user_name",
     "telegram_bot_token",
+    "telegram_bot_user_id",
     "telegram_bot_username",
   ];
 
@@ -410,6 +452,26 @@ export function getProjectById(projectId: number): ProjectRecord | null {
     .get(projectId) as ConnectionRow | undefined;
 
   return mapProject(projectRow, connection);
+}
+
+export function getProjectByTelegramChatId(telegramChatId: string): ProjectRecord | null {
+  const row = db
+    .prepare(
+      `
+        SELECT p.*
+        FROM projects p
+        INNER JOIN project_telegram_connections c
+          ON c.project_id = p.id
+        WHERE c.telegram_chat_id = ?
+      `,
+    )
+    .get(telegramChatId) as ProjectRow | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  return getProjectById(row.id);
 }
 
 export function createProject(input: { name: string; folderPath: string }): ProjectRecord {
@@ -606,6 +668,38 @@ export function findMessageByTelegramMessageId(threadId: number, telegramMessage
   return row ? mapMessage(row) : null;
 }
 
+export function getMessageAttachmentById(messageId: number): MessageAttachmentRecord | null {
+  const row = db
+    .prepare(
+      `
+        SELECT id, attachment_kind, attachment_path, attachment_mime_type, attachment_filename
+        FROM messages
+        WHERE id = ?
+      `,
+    )
+    .get(messageId) as
+    | {
+        id: number;
+        attachment_kind: string | null;
+        attachment_path: string | null;
+        attachment_mime_type: string | null;
+        attachment_filename: string | null;
+      }
+    | undefined;
+
+  if (!row?.attachment_kind || !row.attachment_path) {
+    return null;
+  }
+
+  return {
+    messageId: row.id,
+    kind: row.attachment_kind,
+    path: row.attachment_path,
+    mimeType: row.attachment_mime_type,
+    filename: row.attachment_filename,
+  };
+}
+
 export function createMessage(input: {
   threadId: number;
   role: string;
@@ -615,6 +709,10 @@ export function createMessage(input: {
   senderTelegramUserId?: string | null;
   telegramMessageId?: number | null;
   errorText?: string | null;
+  attachmentKind?: string | null;
+  attachmentPath?: string | null;
+  attachmentMimeType?: string | null;
+  attachmentFilename?: string | null;
 }): MessageRecord {
   const timestamp = nowIso();
   const result = db
@@ -629,9 +727,13 @@ export function createMessage(input: {
           sender_telegram_user_id,
           telegram_message_id,
           error_text,
+          attachment_kind,
+          attachment_path,
+          attachment_mime_type,
+          attachment_filename,
           created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
     )
     .run(
@@ -643,6 +745,10 @@ export function createMessage(input: {
       input.senderTelegramUserId ?? null,
       input.telegramMessageId ?? null,
       input.errorText ?? null,
+      input.attachmentKind ?? null,
+      input.attachmentPath ?? null,
+      input.attachmentMimeType ?? null,
+      input.attachmentFilename ?? null,
       timestamp,
     );
 

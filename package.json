@@ -14,10 +14,12 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@types/ws": "^8.18.1",
     "better-sqlite3": "^11.9.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "telegram": "^2.26.22"
+    "telegram": "^2.26.22",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

@@ -42,6 +42,11 @@ export interface CreatedForumTopic {
   title: string;
 }
 
+export interface ForumTopicLookup {
+  telegramTopicId: number;
+  title: string;
+}
+
 const pendingLogins = new Map<string, PendingLoginSession>();
 let cachedClient: TelegramClient | null = null;
 let cachedClientKey: string | null = null;
@@ -385,6 +390,40 @@ async function findCreatedTopicViaLookup(
   return null;
 }
 
+export async function getForumTopicById(
+  client: TelegramClient,
+  connection: {
+    telegramChatId: string;
+    telegramAccessHash: string;
+  },
+  topicId: number,
+): Promise<ForumTopicLookup | null> {
+  try {
+    const result = await client.invoke(
+      new Api.channels.GetForumTopicsByID({
+        channel: toInputChannel(connection),
+        topics: [topicId],
+      }),
+    );
+
+    if (!(result instanceof Api.messages.ForumTopics)) {
+      return null;
+    }
+
+    const topic = result.topics.find((item): item is Api.ForumTopic => item instanceof Api.ForumTopic);
+    if (!topic) {
+      return null;
+    }
+
+    return {
+      telegramTopicId: topic.topMessage,
+      title: topic.title,
+    };
+  } catch (error) {
+    throw new TelegramMtprotoError(normalizeErrorMessage(error));
+  }
+}
+
 function toInputChannel(connection: {
   telegramChatId: string;
   telegramAccessHash: string;
@@ -529,6 +568,58 @@ export async function inviteUserToSupergroup(
         users: [userEntity],
       }),
     );
+  } catch (error) {
+    throw new TelegramMtprotoError(normalizeErrorMessage(error));
+  }
+}
+
+export async function markTopicRead(
+  client: TelegramClient,
+  connection: {
+    telegramChatId: string;
+    telegramAccessHash: string;
+  },
+  topicId: number,
+  maxMessageId: number,
+): Promise<void> {
+  const peer = toInputPeerChannel(connection);
+  const failures: string[] = [];
+
+  try {
+    try {
+      await client.invoke(
+        new Api.messages.ReadDiscussion({
+          peer,
+          msgId: topicId,
+          readMaxId: maxMessageId,
+        }),
+      );
+    } catch (error) {
+      failures.push(normalizeErrorMessage(error));
+    }
+
+    try {
+      await client.markAsRead(peer, maxMessageId, {
+        maxId: maxMessageId,
+      });
+    } catch (error) {
+      failures.push(normalizeErrorMessage(error));
+    }
+
+    try {
+      await client.invoke(
+        new Api.messages.ReadReactions({
+          peer,
+          topMsgId: topicId,
+        }),
+      );
+    } catch (error) {
+      failures.push(normalizeErrorMessage(error));
+    }
+
+    if (failures.length === 3) {
+      throw new TelegramMtprotoError(failures[0]);
+    }
   } catch (error) {
     throw new TelegramMtprotoError(normalizeErrorMessage(error));
   }

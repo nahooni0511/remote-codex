@@ -25,11 +25,17 @@ const state = {
   projectSuccess: null,
   messageError: null,
   messageSuccess: null,
+  composerDrafts: {},
 };
 
 const appRoot = document.getElementById("app");
 const THREAD_PAGE_SIZE = 10;
 const MAX_COMPOSER_HEIGHT = 220;
+let liveWorkspaceRefreshInFlight = false;
+let realtimeSocket = null;
+let realtimeReconnectTimer = null;
+let pendingWorkspaceSyncTimer = null;
+const pendingThreadSyncTimers = new Map();
 
 async function apiFetch(url, options = {}) {
   const response = await fetch(url, {
@@ -204,16 +210,41 @@ function renderSidebarProject(project) {
   `;
 }
 
+function renderMessageAttachment(message) {
+  if (!message.attachmentKind) {
+    return "";
+  }
+
+  const attachmentUrl = `/api/messages/${message.id}/attachment`;
+  const filename = escapeHtml(message.attachmentFilename || "attachment");
+
+  if (message.attachmentKind === "image") {
+    return `
+      <div class="message-attachment">
+        <img class="message-attachment-image" src="${attachmentUrl}" alt="${filename}" loading="lazy" />
+      </div>
+    `;
+  }
+
+  return `
+    <div class="message-attachment">
+      <a class="message-attachment-link" href="${attachmentUrl}" target="_blank" rel="noreferrer">${filename}</a>
+    </div>
+  `;
+}
+
 function renderConversationMessage(message) {
   const sender = escapeHtml(message.senderName || message.role);
   const date = escapeHtml(formatDate(message.createdAt));
   const body = escapeHtml(message.content);
+  const attachment = renderMessageAttachment(message);
 
   if (message.role === "system") {
     return `
       <article class="system-entry">
         <div class="system-entry-meta">${sender} · ${date}</div>
         <div class="system-entry-body">${body}</div>
+        ${attachment}
       </article>
     `;
   }
@@ -226,7 +257,10 @@ function renderConversationMessage(message) {
         <span>${sender}</span>
         <span>${date}</span>
       </div>
-      <div class="chat-bubble ${isUser ? "user" : "assistant"}">${body}</div>
+      <div class="chat-bubble ${isUser ? "user" : "assistant"}">
+        <div class="chat-bubble-body">${body}</div>
+        ${attachment}
+      </div>
     </article>
   `;
 }
@@ -239,6 +273,124 @@ function resizeComposerTextarea(textarea) {
   textarea.style.height = "0px";
   textarea.style.height = `${Math.min(textarea.scrollHeight, MAX_COMPOSER_HEIGHT)}px`;
   textarea.style.overflowY = textarea.scrollHeight > MAX_COMPOSER_HEIGHT ? "auto" : "hidden";
+}
+
+function buildRealtimeUrl() {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/ws`;
+}
+
+function clearRealtimeReconnectTimer() {
+  if (!realtimeReconnectTimer) {
+    return;
+  }
+
+  window.clearTimeout(realtimeReconnectTimer);
+  realtimeReconnectTimer = null;
+}
+
+function scheduleWorkspaceSync(delay = 120) {
+  if (pendingWorkspaceSyncTimer) {
+    window.clearTimeout(pendingWorkspaceSyncTimer);
+  }
+
+  pendingWorkspaceSyncTimer = window.setTimeout(async () => {
+    pendingWorkspaceSyncTimer = null;
+    if (liveWorkspaceRefreshInFlight) {
+      return;
+    }
+
+    liveWorkspaceRefreshInFlight = true;
+    try {
+      await refreshApp();
+    } catch (error) {
+      console.error("Realtime workspace sync failed:", error);
+    } finally {
+      liveWorkspaceRefreshInFlight = false;
+    }
+  }, delay);
+}
+
+function scheduleThreadSync(threadId, delay = 40) {
+  if (!threadId) {
+    return;
+  }
+
+  const existingTimer = pendingThreadSyncTimers.get(threadId);
+  if (existingTimer) {
+    window.clearTimeout(existingTimer);
+  }
+
+  const timer = window.setTimeout(async () => {
+    pendingThreadSyncTimers.delete(threadId);
+
+    if (state.selectedThreadId !== threadId) {
+      return;
+    }
+
+    try {
+      await loadThreadMessages(threadId);
+      render();
+    } catch (error) {
+      console.error("Realtime thread sync failed:", error);
+    }
+  }, delay);
+
+  pendingThreadSyncTimers.set(threadId, timer);
+}
+
+function handleRealtimeEvent(event) {
+  if (!event || typeof event.type !== "string") {
+    return;
+  }
+
+  if (event.type === "thread-messages-updated" && Number.isInteger(event.threadId)) {
+    scheduleThreadSync(event.threadId);
+    scheduleWorkspaceSync();
+    return;
+  }
+
+  if (event.type === "workspace-updated") {
+    scheduleWorkspaceSync();
+  }
+}
+
+function connectRealtime() {
+  if (realtimeSocket && (realtimeSocket.readyState === WebSocket.OPEN || realtimeSocket.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+
+  clearRealtimeReconnectTimer();
+
+  try {
+    realtimeSocket = new WebSocket(buildRealtimeUrl());
+  } catch (error) {
+    console.error("Realtime socket init failed:", error);
+    realtimeReconnectTimer = window.setTimeout(connectRealtime, 1500);
+    return;
+  }
+
+  realtimeSocket.addEventListener("message", (messageEvent) => {
+    try {
+      handleRealtimeEvent(JSON.parse(messageEvent.data));
+    } catch (error) {
+      console.error("Realtime message parse failed:", error);
+    }
+  });
+
+  realtimeSocket.addEventListener("close", () => {
+    realtimeSocket = null;
+    clearRealtimeReconnectTimer();
+    realtimeReconnectTimer = window.setTimeout(connectRealtime, 1500);
+  });
+
+  realtimeSocket.addEventListener("error", () => {
+    try {
+      realtimeSocket?.close();
+    } catch {
+      realtimeSocket = null;
+    }
+  });
 }
 
 async function fetchFsEntries(targetPath) {
@@ -461,11 +613,14 @@ function bindMessageComposer() {
   resizeComposerTextarea(textarea);
 
   textarea.addEventListener("input", () => {
+    if (state.selectedThreadId) {
+      state.composerDrafts[state.selectedThreadId] = textarea.value;
+    }
     resizeComposerTextarea(textarea);
   });
 
   textarea.addEventListener("keydown", (event) => {
-    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
       textarea.form?.requestSubmit();
     }
@@ -627,6 +782,7 @@ async function syncRouteState({ replace = false } = {}) {
   }
 
   render();
+  updateLiveWorkspaceRefreshLoop();
 }
 
 async function navigateToRoute(route, { replace = false } = {}) {
@@ -1047,6 +1203,7 @@ function renderProjectPanel(project, isNew) {
 function renderThreadPanel(project, thread) {
   const cache = state.threadCache.get(thread.id);
   const messages = cache?.messages || [];
+  const draft = state.composerDrafts[thread.id] || "";
 
   return `
     <section class="conversation-shell">
@@ -1078,7 +1235,7 @@ function renderThreadPanel(project, thread) {
             rows="1"
             placeholder="메시지 입력"
             required
-          ></textarea>
+          >${escapeHtml(draft)}</textarea>
           <div class="composer-footer">
             <button class="primary-btn composer-send-btn" type="submit">보내기</button>
           </div>
@@ -1293,6 +1450,15 @@ async function handleMessageSubmit(event) {
   const threadId = Number(formElement.dataset.threadId);
   const form = new FormData(formElement);
   const payload = Object.fromEntries(form.entries());
+  const submittedContent = String(payload.content || "");
+  const textarea = formElement.querySelector("textarea[name='content']");
+
+  state.composerDrafts[threadId] = "";
+  formElement.reset();
+  if (textarea) {
+    textarea.value = "";
+    resizeComposerTextarea(textarea);
+  }
 
   try {
     await apiFetch(`/api/threads/${threadId}/messages`, {
@@ -1301,10 +1467,6 @@ async function handleMessageSubmit(event) {
     });
 
     state.messageSuccess = null;
-    formElement.reset();
-    resizeComposerTextarea(formElement.querySelector("textarea[name='content']"));
-    await loadThreadMessages(threadId);
-    await refreshApp();
   } catch (error) {
     if (error.message.includes("Connected Telegram topic was deleted")) {
       state.flash = "Telegram에서 topic이 삭제되어 연결된 thread도 함께 삭제했습니다.";
@@ -1313,6 +1475,7 @@ async function handleMessageSubmit(event) {
       return;
     }
 
+    state.composerDrafts[threadId] = submittedContent;
     state.messageError = error.message;
     render();
   }
@@ -1323,12 +1486,50 @@ async function refreshApp() {
   await syncRouteState({ replace: true });
 }
 
+async function refreshWorkspaceLive() {
+  if (liveWorkspaceRefreshInFlight) {
+    return;
+  }
+
+  if (state.mode !== "main" || !state.bootstrap?.setupComplete) {
+    return;
+  }
+
+  if (document.visibilityState === "hidden") {
+    return;
+  }
+
+  if (state.selectedThreadId && document.activeElement?.id === "message-input") {
+    return;
+  }
+
+  liveWorkspaceRefreshInFlight = true;
+
+  try {
+    await refreshApp();
+  } catch (error) {
+    console.error("Live workspace refresh failed:", error);
+  } finally {
+    liveWorkspaceRefreshInFlight = false;
+  }
+}
+
+function updateLiveWorkspaceRefreshLoop() {
+  return;
+}
+
 async function boot() {
   try {
     window.addEventListener("popstate", () => {
       void syncRouteState({ replace: true });
     });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        void refreshWorkspaceLive();
+      }
+    });
 
+    connectRealtime();
     await refreshApp();
   } catch (error) {
     appRoot.innerHTML = `

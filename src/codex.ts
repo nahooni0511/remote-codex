@@ -18,12 +18,26 @@ export interface CodexTurnInput {
   userMessage: string;
   senderName: string;
   source: "telegram" | "web";
+  onProgress?: (event: CodexProgressEvent) => void | Promise<void>;
 }
 
 export interface CodexTurnResult {
   sessionId: string;
   output: string;
   createdSession: boolean;
+  artifacts: CodexArtifact[];
+}
+
+export interface CodexProgressEvent {
+  text: string;
+}
+
+export interface CodexArtifact {
+  kind: "image" | "document";
+  filename: string;
+  mimeType: string;
+  base64Data: string | null;
+  filePath: string | null;
 }
 
 interface CodexJsonEvent {
@@ -33,6 +47,17 @@ interface CodexJsonEvent {
     id?: string;
     type?: string;
     text?: string;
+    arguments?: {
+      filename?: string;
+    };
+    result?: {
+      content?: Array<{
+        type?: string;
+        text?: string;
+        data?: string;
+        mime_type?: string;
+      }>;
+    };
   };
 }
 
@@ -49,10 +74,103 @@ function buildCodexPrompt(input: CodexTurnInput): string {
   return input.userMessage.trim();
 }
 
+function extractArtifactPathFromText(text: string): string | null {
+  const markdownLinkMatch = text.match(/\[[^\]]+\]\(([^)]+)\)/);
+  if (!markdownLinkMatch?.[1]) {
+    return null;
+  }
+
+  return markdownLinkMatch[1].trim() || null;
+}
+
+function normalizeArtifactFilename(filePath: string | null, mimeType: string, kind: "image" | "document"): string {
+  if (filePath) {
+    return path.basename(filePath);
+  }
+
+  const extension =
+    mimeType === "image/jpeg"
+      ? ".jpg"
+      : mimeType === "image/png"
+        ? ".png"
+        : mimeType === "application/pdf"
+          ? ".pdf"
+          : kind === "image"
+            ? ".png"
+            : ".bin";
+
+  return `codex-artifact${extension}`;
+}
+
+function pushArtifact(
+  artifacts: CodexArtifact[],
+  artifact: CodexArtifact,
+): void {
+  const duplicate = artifacts.some(
+    (existing) =>
+      existing.kind === artifact.kind &&
+      existing.filename === artifact.filename &&
+      existing.mimeType === artifact.mimeType &&
+      existing.filePath === artifact.filePath &&
+      existing.base64Data === artifact.base64Data,
+  );
+
+  if (!duplicate) {
+    artifacts.push(artifact);
+  }
+}
+
+function collectArtifactsFromItem(
+  cwd: string,
+  item: NonNullable<CodexJsonEvent["item"]>,
+  artifacts: CodexArtifact[],
+): void {
+  if (item.type !== "mcp_tool_call" || !item.result?.content?.length) {
+    return;
+  }
+
+  let artifactPath =
+    typeof item.arguments?.filename === "string" && item.arguments.filename.trim()
+      ? item.arguments.filename.trim()
+      : null;
+
+  for (const contentItem of item.result.content) {
+    if (!artifactPath && typeof contentItem.text === "string") {
+      artifactPath = extractArtifactPathFromText(contentItem.text);
+    }
+  }
+
+  const resolvedArtifactPath = artifactPath
+    ? path.resolve(cwd, artifactPath)
+    : null;
+
+  for (const contentItem of item.result.content) {
+    if (contentItem.type !== "image" && contentItem.type !== "file") {
+      continue;
+    }
+
+    const mimeType =
+      typeof contentItem.mime_type === "string" && contentItem.mime_type.trim()
+        ? contentItem.mime_type.trim()
+        : contentItem.type === "image"
+          ? "image/png"
+          : "application/octet-stream";
+
+    pushArtifact(artifacts, {
+      kind: contentItem.type === "image" ? "image" : "document",
+      filename: normalizeArtifactFilename(resolvedArtifactPath, mimeType, contentItem.type === "image" ? "image" : "document"),
+      mimeType,
+      base64Data: typeof contentItem.data === "string" && contentItem.data.trim() ? contentItem.data.trim() : null,
+      filePath: resolvedArtifactPath,
+    });
+  }
+}
+
 async function runCodexCommand(input: {
   cwd: string;
   prompt: string;
   sessionId?: string | null;
+  onProgress?: (event: CodexProgressEvent) => void | Promise<void>;
 }): Promise<CodexTurnResult> {
   const outputFile = path.join(
     os.tmpdir(),
@@ -103,11 +221,27 @@ async function runCodexCommand(input: {
     let stderrBuffer = "";
     let detectedSessionId = input.sessionId ?? null;
     let fallbackOutput = "";
+    const artifacts: CodexArtifact[] = [];
     let settled = false;
+    let progressChain: Promise<void> = Promise.resolve();
 
     const timeout = setTimeout(() => {
       child.kill("SIGTERM");
     }, DEFAULT_CODEX_TIMEOUT_MS);
+
+    function enqueueProgress(event: CodexProgressEvent): void {
+      if (!input.onProgress) {
+        return;
+      }
+
+      progressChain = progressChain.then(async () => {
+        try {
+          await input.onProgress?.(event);
+        } catch {
+          // Ignore progress delivery errors; final answer still matters.
+        }
+      });
+    }
 
     function handleStdoutChunk(chunk: string): void {
       stdoutBuffer += chunk;
@@ -128,8 +262,18 @@ async function runCodexCommand(input: {
             detectedSessionId = event.thread_id;
           }
 
-          if (event.type === "item.completed" && event.item?.type === "agent_message" && event.item.text) {
-            fallbackOutput = event.item.text;
+          if (event.type === "item.completed" && event.item) {
+            collectArtifactsFromItem(input.cwd, event.item, artifacts);
+
+            if (event.item.text && event.item.type === "reasoning") {
+              enqueueProgress({
+                text: event.item.text,
+              });
+            }
+
+            if (event.item.text && event.item.type === "agent_message") {
+              fallbackOutput = event.item.text;
+            }
           }
         } catch {
           // Ignore non-JSON lines from the CLI.
@@ -162,6 +306,7 @@ async function runCodexCommand(input: {
       settled = true;
 
       try {
+        await progressChain;
         const fileOutput = await fs.readFile(outputFile, "utf8").catch(() => "");
         await fs.unlink(outputFile).catch(() => undefined);
         const finalOutput = fileOutput.trim() || fallbackOutput.trim();
@@ -189,6 +334,7 @@ async function runCodexCommand(input: {
           sessionId: detectedSessionId,
           output: finalOutput,
           createdSession: !input.sessionId,
+          artifacts,
         });
       } catch (error) {
         reject(
@@ -208,6 +354,7 @@ export function runCodexTurn(input: CodexTurnInput): Promise<CodexTurnResult> {
       cwd: input.project.folderPath,
       prompt,
       sessionId: input.thread.codexSessionId,
+      onProgress: input.onProgress,
     });
 
   const queued = codexQueue.then(task, task);
