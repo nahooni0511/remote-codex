@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
 
+import { getTelegramBotProfile, sendTopicMessageAsBot, TelegramBotApiError } from "./bot";
 import { CodexExecutionError, runCodexTurn } from "./codex";
 import {
   createMessage,
@@ -35,6 +36,7 @@ import {
   createForumTopic,
   getAuthenticatedClient,
   getPendingLogin,
+  inviteUserToSupergroup,
   sendTopicMessage,
   startPhoneLogin,
   shutdownMtprotoClients,
@@ -167,6 +169,22 @@ function getAuthConfigOrThrow(): TelegramAuthConfig {
   };
 }
 
+function getBotConfigOrThrow(): { botToken: string; botUserName: string } {
+  const auth = getTelegramAuth();
+  if (!auth.botToken || !auth.botUserName) {
+    throw new HttpError(400, "Telegram bot token is required.");
+  }
+
+  return {
+    botToken: auth.botToken,
+    botUserName: auth.botUserName,
+  };
+}
+
+function toBotApiChatId(telegramChannelId: string): string {
+  return `-100${telegramChannelId}`;
+}
+
 function getAppState() {
   const auth = getTelegramAuth();
 
@@ -239,6 +257,7 @@ async function runConversationTurn(input: {
   thread: ThreadRecord;
 }> {
   const authConfig = getAuthConfigOrThrow();
+  const botConfig = getBotConfigOrThrow();
   const client = await getAuthenticatedClient(authConfig);
 
   if (!input.project.connection?.telegramChatId || !input.project.connection.telegramAccessHash) {
@@ -280,20 +299,20 @@ async function runConversationTurn(input: {
         ? (updateThreadCodexSession(input.thread.id, codexResult.sessionId) ?? input.thread)
         : input.thread;
 
-    const sentAssistantMessage = await sendTopicMessage(
-      client,
-      telegramConnection,
-      updatedThread.telegramTopicId,
-      buildCodexReplyText(codexResult.output),
-    );
+    const botAssistantMessage = await sendTopicMessageAsBot({
+      botToken: botConfig.botToken,
+      chatId: toBotApiChatId(telegramConnection.telegramChatId),
+      topicId: updatedThread.telegramTopicId,
+      text: buildCodexReplyText(codexResult.output),
+    });
 
     createMessage({
       threadId: updatedThread.id,
       role: "assistant",
       content: codexResult.output,
       source: "codex",
-      senderName: "Codex",
-      telegramMessageId: sentAssistantMessage.telegramMessageId,
+      senderName: botConfig.botUserName,
+      telegramMessageId: botAssistantMessage.telegramMessageId,
     });
 
     return {
@@ -311,12 +330,12 @@ async function runConversationTurn(input: {
       errorText: errorMessage,
     });
 
-    await sendTopicMessage(
-      client,
-      telegramConnection,
-      input.thread.telegramTopicId,
-      buildCodexErrorNotice(errorMessage),
-    ).catch(() => undefined);
+    await sendTopicMessageAsBot({
+      botToken: botConfig.botToken,
+      chatId: toBotApiChatId(telegramConnection.telegramChatId),
+      topicId: input.thread.telegramTopicId,
+      text: buildCodexErrorNotice(errorMessage),
+    }).catch(() => undefined);
 
     throw error;
   }
@@ -343,11 +362,13 @@ app.post("/api/auth/send-code", async (request, response, next) => {
     const apiId = Number(assertNonEmptyString(request.body.apiId, "Telegram API ID"));
     const apiHash = assertNonEmptyString(request.body.apiHash, "Telegram API hash");
     const phoneNumber = assertNonEmptyString(request.body.phoneNumber, "Telegram phone number");
+    const botToken = assertNonEmptyString(request.body.botToken, "Telegram bot token");
 
     if (!Number.isInteger(apiId) || apiId <= 0) {
       throw new HttpError(400, "Telegram API ID must be a positive integer.");
     }
 
+    const botProfile = await getTelegramBotProfile(botToken);
     const pending = await startPhoneLogin({
       apiId,
       apiHash,
@@ -358,6 +379,7 @@ app.post("/api/auth/send-code", async (request, response, next) => {
       pendingAuthId: pending.id,
       phoneNumber,
       isCodeViaApp: pending.isCodeViaApp,
+      botUserName: botProfile.username,
     });
   } catch (error) {
     next(error);
@@ -368,6 +390,7 @@ app.post("/api/auth/verify-code", async (request, response, next) => {
   try {
     const pendingAuthId = assertNonEmptyString(request.body.pendingAuthId, "Pending auth ID");
     const phoneCode = assertNonEmptyString(request.body.phoneCode, "Telegram login code");
+    const botToken = assertNonEmptyString(request.body.botToken, "Telegram bot token");
     const pending = getPendingLogin(pendingAuthId);
 
     if (!pending) {
@@ -388,6 +411,7 @@ app.post("/api/auth/verify-code", async (request, response, next) => {
       return;
     }
 
+    const botProfile = await getTelegramBotProfile(botToken);
     saveTelegramAuth({
       apiId: pending.apiId,
       apiHash: pending.apiHash,
@@ -395,6 +419,8 @@ app.post("/api/auth/verify-code", async (request, response, next) => {
       sessionString: result.sessionString,
       userId: result.user.userId,
       userName: result.user.userName,
+      botToken,
+      botUserName: botProfile.username,
     });
 
     response.json(getAppState());
@@ -407,6 +433,7 @@ app.post("/api/auth/verify-password", async (request, response, next) => {
   try {
     const pendingAuthId = assertNonEmptyString(request.body.pendingAuthId, "Pending auth ID");
     const password = assertNonEmptyString(request.body.password, "Telegram 2FA password");
+    const botToken = assertNonEmptyString(request.body.botToken, "Telegram bot token");
     const pending = getPendingLogin(pendingAuthId);
 
     if (!pending) {
@@ -418,6 +445,7 @@ app.post("/api/auth/verify-password", async (request, response, next) => {
       password,
     });
 
+    const botProfile = await getTelegramBotProfile(botToken);
     saveTelegramAuth({
       apiId: pending.apiId,
       apiHash: pending.apiHash,
@@ -425,6 +453,8 @@ app.post("/api/auth/verify-password", async (request, response, next) => {
       sessionString: result.sessionString,
       userId: result.user.userId,
       userName: result.user.userName,
+      botToken,
+      botUserName: botProfile.username,
     });
 
     response.json(getAppState());
@@ -438,12 +468,22 @@ app.post("/api/projects", async (request, response, next) => {
     const groupName = assertNonEmptyString(request.body.groupName, "Group name");
     const folderPath = validateFolderPath(assertNonEmptyString(request.body.folderPath, "Project folder path"));
     const authConfig = getAuthConfigOrThrow();
+    const botConfig = getBotConfigOrThrow();
     const client = await getAuthenticatedClient(authConfig);
 
     const createdGroup = await createForumSupergroup(client, {
       title: groupName,
       about: `Codex project: ${groupName}`,
     });
+
+    await inviteUserToSupergroup(
+      client,
+      {
+        telegramChatId: createdGroup.telegramChannelId,
+        telegramAccessHash: createdGroup.telegramAccessHash,
+      },
+      botConfig.botUserName,
+    );
 
     const project = createProject({
       name: groupName,
@@ -623,7 +663,7 @@ app.use((error: unknown, _request: Request, response: Response, _next: express.N
     return;
   }
 
-  if (error instanceof TelegramMtprotoError || error instanceof CodexExecutionError) {
+  if (error instanceof TelegramMtprotoError || error instanceof TelegramBotApiError || error instanceof CodexExecutionError) {
     response.status(400).json({ error: error.message });
     return;
   }

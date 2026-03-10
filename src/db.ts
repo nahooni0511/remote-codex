@@ -12,6 +12,8 @@ export interface TelegramAuthRecord {
   sessionString: string | null;
   userId: string | null;
   userName: string | null;
+  botToken: string | null;
+  botUserName: string | null;
   isAuthenticated: boolean;
 }
 
@@ -280,6 +282,8 @@ export function getTelegramAuth(): TelegramAuthRecord {
   const sessionString = getSetting("telegram_session_string");
   const userId = getSetting("telegram_user_id");
   const userName = getSetting("telegram_user_name");
+  const botToken = getSetting("telegram_bot_token");
+  const botUserName = getSetting("telegram_bot_username");
 
   return {
     apiId,
@@ -288,7 +292,9 @@ export function getTelegramAuth(): TelegramAuthRecord {
     sessionString,
     userId,
     userName,
-    isAuthenticated: Boolean(apiId && apiHash && phoneNumber && sessionString),
+    botToken,
+    botUserName,
+    isAuthenticated: Boolean(apiId && apiHash && phoneNumber && sessionString && botToken),
   };
 }
 
@@ -299,6 +305,8 @@ export function saveTelegramAuth(input: {
   sessionString: string;
   userId: string;
   userName: string;
+  botToken: string;
+  botUserName: string;
 }): void {
   setSetting("telegram_api_id", String(input.apiId));
   setSetting("telegram_api_hash", input.apiHash);
@@ -306,6 +314,8 @@ export function saveTelegramAuth(input: {
   setSetting("telegram_session_string", input.sessionString);
   setSetting("telegram_user_id", input.userId);
   setSetting("telegram_user_name", input.userName);
+  setSetting("telegram_bot_token", input.botToken);
+  setSetting("telegram_bot_username", input.botUserName);
 }
 
 export function clearTelegramAuth(): void {
@@ -316,6 +326,8 @@ export function clearTelegramAuth(): void {
     "telegram_session_string",
     "telegram_user_id",
     "telegram_user_name",
+    "telegram_bot_token",
+    "telegram_bot_username",
   ];
 
   for (const key of keys) {
@@ -331,6 +343,7 @@ export function getPublicSettings(): {
   codexBin: string;
   telegramUserName: string | null;
   telegramPhoneNumber: string | null;
+  telegramBotUserName: string | null;
 } {
   const auth = getTelegramAuth();
 
@@ -338,6 +351,7 @@ export function getPublicSettings(): {
     codexBin: process.env.CODEX_BIN?.trim() || "codex",
     telegramUserName: auth.userName,
     telegramPhoneNumber: auth.phoneNumber,
+    telegramBotUserName: auth.botUserName,
   };
 }
 

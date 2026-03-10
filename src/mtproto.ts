@@ -501,12 +501,34 @@ export async function sendTopicMessage(
   try {
     const sent = await client.sendMessage(toInputPeerChannel(connection), {
       message,
+      replyTo: topicId,
       topMsgId: topicId,
     });
 
     return {
       telegramMessageId: sent.id,
     };
+  } catch (error) {
+    throw new TelegramMtprotoError(normalizeErrorMessage(error));
+  }
+}
+
+export async function inviteUserToSupergroup(
+  client: TelegramClient,
+  connection: {
+    telegramChatId: string;
+    telegramAccessHash: string;
+  },
+  username: string,
+): Promise<void> {
+  try {
+    const userEntity = await client.getInputEntity(username.startsWith("@") ? username : `@${username}`);
+    await client.invoke(
+      new Api.channels.InviteToChannel({
+        channel: toInputChannel(connection),
+        users: [userEntity],
+      }),
+    );
   } catch (error) {
     throw new TelegramMtprotoError(normalizeErrorMessage(error));
   }

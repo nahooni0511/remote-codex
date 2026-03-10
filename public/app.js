@@ -12,6 +12,8 @@ const state = {
     apiId: "",
     apiHash: "",
     phoneNumber: "",
+    botToken: "",
+    botUserName: "",
     requiresPassword: false,
     passwordHint: "",
   },
@@ -709,6 +711,10 @@ function renderSetup() {
               <span>전화번호</span>
               <input name="phoneNumber" value="${escapeHtml(state.authFlow.phoneNumber)}" placeholder="+821012345678" required />
             </label>
+            <label class="form-field">
+              <span>Telegram bot token</span>
+              <input name="botToken" value="${escapeHtml(state.authFlow.botToken)}" placeholder="123456:ABCDEF..." required />
+            </label>
             <button class="primary-btn" type="submit">
               ${state.authFlow.pendingAuthId ? "코드 다시 보내기" : "로그인 코드 보내기"}
             </button>
@@ -718,7 +724,7 @@ function renderSetup() {
               ? `
                 <div class="panel-block">
                   <h3 class="panel-title">코드 확인</h3>
-                  <p class="panel-subtitle">${escapeHtml(state.authFlow.phoneNumber)} 로 받은 Telegram 코드를 입력하세요.</p>
+                  <p class="panel-subtitle">${escapeHtml(state.authFlow.phoneNumber)} 로 받은 Telegram 코드를 입력하세요. Codex 응답은 @${escapeHtml(state.authFlow.botUserName || "bot")} 이 전송합니다.</p>
                   <form id="auth-verify-code-form" class="form-grid">
                     <label class="form-field">
                       <span>로그인 코드</span>
@@ -1101,6 +1107,8 @@ async function handleSetupSubmit(event) {
       apiId: String(payload.apiId || ""),
       apiHash: String(payload.apiHash || ""),
       phoneNumber: String(payload.phoneNumber || ""),
+      botToken: String(payload.botToken || ""),
+      botUserName: String(result.botUserName || ""),
       requiresPassword: false,
       passwordHint: "",
     };
@@ -1132,6 +1140,7 @@ async function handleAuthVerifyCode(event) {
       body: JSON.stringify({
         pendingAuthId: state.authFlow.pendingAuthId,
         phoneCode: payload.phoneCode,
+        botToken: state.authFlow.botToken,
       }),
     });
 
@@ -1148,6 +1157,8 @@ async function handleAuthVerifyCode(event) {
       apiId: "",
       apiHash: "",
       phoneNumber: "",
+      botToken: "",
+      botUserName: "",
       requiresPassword: false,
       passwordHint: "",
     };
@@ -1178,6 +1189,7 @@ async function handleAuthVerifyPassword(event) {
       body: JSON.stringify({
         pendingAuthId: state.authFlow.pendingAuthId,
         password: payload.password,
+        botToken: state.authFlow.botToken,
       }),
     });
 
@@ -1186,6 +1198,8 @@ async function handleAuthVerifyPassword(event) {
       apiId: "",
       apiHash: "",
       phoneNumber: "",
+      botToken: "",
+      botUserName: "",
       requiresPassword: false,
       passwordHint: "",
     };
