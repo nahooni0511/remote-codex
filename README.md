@@ -62,7 +62,6 @@ npm start
 
 입력값:
 
-- 앱 이름
 - Telegram API ID
 - Telegram API Hash
 - 전화번호
@@ -252,4 +251,3 @@ CODEX_TIMEOUT_MS=600000
 
 - Setup이 bot token 방식이 아니라 Telegram 사용자 로그인 방식으로 끝났는지 확인하세요.
 - 로그인이 풀렸으면 다시 로그인해야 합니다.
-

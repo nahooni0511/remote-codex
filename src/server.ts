@@ -342,7 +342,6 @@ app.get("/api/fs/list", (request, response, next) => {
 
 app.post("/api/auth/send-code", async (request, response, next) => {
   try {
-    const appName = assertNonEmptyString(request.body.appName, "App name");
     const apiId = Number(assertNonEmptyString(request.body.apiId, "Telegram API ID"));
     const apiHash = assertNonEmptyString(request.body.apiHash, "Telegram API hash");
     const phoneNumber = assertNonEmptyString(request.body.phoneNumber, "Telegram phone number");
@@ -359,7 +358,6 @@ app.post("/api/auth/send-code", async (request, response, next) => {
 
     response.status(201).json({
       pendingAuthId: pending.id,
-      appName,
       phoneNumber,
       isCodeViaApp: pending.isCodeViaApp,
     });
@@ -371,7 +369,6 @@ app.post("/api/auth/send-code", async (request, response, next) => {
 app.post("/api/auth/verify-code", async (request, response, next) => {
   try {
     const pendingAuthId = assertNonEmptyString(request.body.pendingAuthId, "Pending auth ID");
-    const appName = assertNonEmptyString(request.body.appName, "App name");
     const phoneCode = assertNonEmptyString(request.body.phoneCode, "Telegram login code");
     const pending = getPendingLogin(pendingAuthId);
 
@@ -394,7 +391,6 @@ app.post("/api/auth/verify-code", async (request, response, next) => {
     }
 
     saveTelegramAuth({
-      appName,
       apiId: pending.apiId,
       apiHash: pending.apiHash,
       phoneNumber: pending.phoneNumber,
@@ -412,7 +408,6 @@ app.post("/api/auth/verify-code", async (request, response, next) => {
 app.post("/api/auth/verify-password", async (request, response, next) => {
   try {
     const pendingAuthId = assertNonEmptyString(request.body.pendingAuthId, "Pending auth ID");
-    const appName = assertNonEmptyString(request.body.appName, "App name");
     const password = assertNonEmptyString(request.body.password, "Telegram 2FA password");
     const pending = getPendingLogin(pendingAuthId);
 
@@ -426,7 +421,6 @@ app.post("/api/auth/verify-password", async (request, response, next) => {
     });
 
     saveTelegramAuth({
-      appName,
       apiId: pending.apiId,
       apiHash: pending.apiHash,
       phoneNumber: pending.phoneNumber,

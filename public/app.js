@@ -9,7 +9,6 @@ const state = {
   projectDraft: null,
   authFlow: {
     pendingAuthId: null,
-    appName: "",
     apiId: "",
     apiHash: "",
     phoneNumber: "",
@@ -291,7 +290,7 @@ function getConversationTitle(project, thread) {
     return project.name;
   }
 
-  return state.bootstrap?.settings?.appName || "Codex Telegram Thread Manager";
+  return "Codex Telegram Thread Manager";
 }
 
 function renderSidebarProject(project) {
@@ -1066,10 +1065,6 @@ function renderSetup() {
           ${state.setupSuccess ? `<div class="success-banner">${escapeHtml(state.setupSuccess)}</div>` : ""}
           <form id="auth-send-code-form" class="form-grid">
             <label class="form-field">
-              <span>앱 이름</span>
-              <input name="appName" value="${escapeHtml(state.authFlow.appName)}" placeholder="예: Codex Thread Manager" required />
-            </label>
-            <label class="form-field">
               <span>Telegram API ID</span>
               <input name="apiId" value="${escapeHtml(state.authFlow.apiId)}" placeholder="123456" required />
             </label>
@@ -1470,7 +1465,6 @@ async function handleSetupSubmit(event) {
 
     state.authFlow = {
       pendingAuthId: result.pendingAuthId,
-      appName: String(payload.appName || ""),
       apiId: String(payload.apiId || ""),
       apiHash: String(payload.apiHash || ""),
       phoneNumber: String(payload.phoneNumber || ""),
@@ -1504,7 +1498,6 @@ async function handleAuthVerifyCode(event) {
       method: "POST",
       body: JSON.stringify({
         pendingAuthId: state.authFlow.pendingAuthId,
-        appName: state.authFlow.appName,
         phoneCode: payload.phoneCode,
       }),
     });
@@ -1519,7 +1512,6 @@ async function handleAuthVerifyCode(event) {
 
     state.authFlow = {
       pendingAuthId: null,
-      appName: "",
       apiId: "",
       apiHash: "",
       phoneNumber: "",
@@ -1552,14 +1544,12 @@ async function handleAuthVerifyPassword(event) {
       method: "POST",
       body: JSON.stringify({
         pendingAuthId: state.authFlow.pendingAuthId,
-        appName: state.authFlow.appName,
         password: payload.password,
       }),
     });
 
     state.authFlow = {
       pendingAuthId: null,
-      appName: "",
       apiId: "",
       apiHash: "",
       phoneNumber: "",

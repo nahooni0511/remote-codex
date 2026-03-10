@@ -6,7 +6,6 @@ import Database from "better-sqlite3";
 const DEFAULT_DATABASE_PATH = "./data/app.db";
 
 export interface TelegramAuthRecord {
-  appName: string | null;
   apiId: number | null;
   apiHash: string | null;
   phoneNumber: string | null;
@@ -299,7 +298,6 @@ export function setSetting(key: string, value: string): void {
 }
 
 export function getTelegramAuth(): TelegramAuthRecord {
-  const appName = getSetting("app_name");
   const apiId = Number(getSetting("telegram_api_id") || 0) || null;
   const apiHash = getSetting("telegram_api_hash");
   const phoneNumber = getSetting("telegram_phone_number");
@@ -308,19 +306,17 @@ export function getTelegramAuth(): TelegramAuthRecord {
   const userName = getSetting("telegram_user_name");
 
   return {
-    appName,
     apiId,
     apiHash,
     phoneNumber,
     sessionString,
     userId,
     userName,
-    isAuthenticated: Boolean(appName && apiId && apiHash && phoneNumber && sessionString),
+    isAuthenticated: Boolean(apiId && apiHash && phoneNumber && sessionString),
   };
 }
 
 export function saveTelegramAuth(input: {
-  appName: string;
   apiId: number;
   apiHash: string;
   phoneNumber: string;
@@ -328,7 +324,6 @@ export function saveTelegramAuth(input: {
   userId: string;
   userName: string;
 }): void {
-  setSetting("app_name", input.appName);
   setSetting("telegram_api_id", String(input.apiId));
   setSetting("telegram_api_hash", input.apiHash);
   setSetting("telegram_phone_number", input.phoneNumber);
@@ -339,6 +334,7 @@ export function saveTelegramAuth(input: {
 
 export function clearTelegramAuth(): void {
   const keys = [
+    "app_name",
     "telegram_api_id",
     "telegram_api_hash",
     "telegram_phone_number",
@@ -357,7 +353,6 @@ export function isSetupComplete(): boolean {
 }
 
 export function getPublicSettings(): {
-  appName: string | null;
   codexBin: string;
   telegramUserName: string | null;
   telegramPhoneNumber: string | null;
@@ -365,7 +360,6 @@ export function getPublicSettings(): {
   const auth = getTelegramAuth();
 
   return {
-    appName: auth.appName,
     codexBin: process.env.CODEX_BIN?.trim() || "codex",
     telegramUserName: auth.userName,
     telegramPhoneNumber: auth.phoneNumber,
