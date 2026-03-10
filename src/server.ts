@@ -177,10 +177,7 @@ function getAppState() {
       phoneNumber: auth.phoneNumber,
       userName: auth.userName,
     },
-    settings: {
-      ...getPublicSettings(),
-      telegramPollingError: null,
-    },
+    settings: getPublicSettings(),
     projects: listProjectsTree(),
   };
 }

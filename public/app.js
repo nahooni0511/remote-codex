@@ -28,26 +28,6 @@ const state = {
 const appRoot = document.getElementById("app");
 const THREAD_PAGE_SIZE = 10;
 const MAX_COMPOSER_HEIGHT = 220;
-const discoveryRuntime = {
-  setup: {
-    sessionId: null,
-    data: null,
-    poller: null,
-    selectedChatId: "",
-    selectedChatTitle: "",
-    verification: null,
-    ownerKey: "setup",
-  },
-  project: {
-    sessionId: null,
-    data: null,
-    poller: null,
-    selectedChatId: "",
-    selectedChatTitle: "",
-    verification: null,
-    ownerKey: null,
-  },
-};
 
 async function apiFetch(url, options = {}) {
   const response = await fetch(url, {
@@ -79,133 +59,6 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function primeDiscoveryContext(context, ownerKey, defaults = {}) {
-  const runtime = discoveryRuntime[context];
-
-  if (runtime.ownerKey === ownerKey) {
-    return;
-  }
-
-  if (runtime.sessionId) {
-    fetch(`/api/telegram/chat-discovery/${runtime.sessionId}`, {
-      method: "DELETE",
-    }).catch(() => undefined);
-  }
-
-  clearDiscoveryPoller(context);
-  runtime.sessionId = null;
-  runtime.data = null;
-  runtime.poller = null;
-  runtime.ownerKey = ownerKey;
-  runtime.selectedChatId = defaults.telegramChatId || "";
-  runtime.selectedChatTitle = defaults.telegramChatTitle || "";
-  runtime.verification = defaults.verification || null;
-}
-
-function setSelectedDiscoveryChat(context, chatId, chatTitle) {
-  const runtime = discoveryRuntime[context];
-  runtime.selectedChatId = chatId || "";
-  runtime.selectedChatTitle = chatTitle || "";
-
-  const config = getDiscoveryContextConfig(context);
-  const chatInput = document.getElementById(config.chatInputId);
-  if (chatInput) {
-    chatInput.value = runtime.selectedChatId;
-  }
-}
-
-function getActiveVerification(context, fallbackConnection = null) {
-  return discoveryRuntime[context].verification?.verification || fallbackConnection || null;
-}
-
-function renderVerificationSummary(context, fallbackConnection = null) {
-  const runtime = discoveryRuntime[context];
-  const verification = getActiveVerification(context, fallbackConnection);
-  const selectedChatId = runtime.selectedChatId || verification?.telegramChatId || "";
-  const selectedChatTitle = runtime.selectedChatTitle || verification?.telegramChatTitle || "";
-  const statusMessage = verification
-    ? `<div class="success-banner">연결 검증이 완료되었습니다.</div>`
-      : selectedChatId
-      ? `<div class="badge warning">chat id를 찾았습니다! 이제 연결 검증을 눌러주세요.</div>`
-      : `<div class="muted">아직 연결된 Telegram supergroup이 없습니다.</div>`;
-
-  return `
-    <div class="panel-block">
-      <div class="field-row">
-        <strong>검증 결과</strong>
-        <small>최근 검증: ${verification?.lastVerifiedAt ? formatDate(verification.lastVerifiedAt) : "-"}</small>
-      </div>
-      ${statusMessage}
-      <div class="status-grid">
-        ${connectionBadges(verification).join("")}
-      </div>
-      <div class="stack">
-        <div><strong>Telegram 그룹:</strong> ${escapeHtml(selectedChatTitle || "-")}</div>
-      </div>
-    </div>
-  `;
-}
-
-function renderTelegramGuide(context, currentChatId = "") {
-  const config = getDiscoveryContextConfig(context);
-  const guideTitle =
-    context === "setup"
-      ? "Telegram forum supergroup 준비"
-      : "Telegram supergroup 연결 변경";
-
-  return `
-    <div class="panel-block">
-      <div class="field-row">
-        <strong>${guideTitle}</strong>
-        <div class="toolbar">
-          <button id="${config.startButtonId}" class="secondary-btn" type="button">탐색 시작</button>
-          <button id="${config.stopButtonId}" class="ghost-btn" type="button">중지</button>
-          <button id="${config.verifyButtonId}" class="secondary-btn" type="button">연결 검증</button>
-        </div>
-      </div>
-      <div class="guide-steps">
-        <div class="guide-step">1. Telegram에서 forum supergroup을 직접 만듭니다.</div>
-        <div class="guide-step">2. bot을 그룹에 초대하고 admin으로 올립니다.</div>
-        <div class="guide-step">3. 관리자 권한에서 <code>Manage Topics</code>를 켜고 Topics/Forum을 활성화합니다.</div>
-        <div class="guide-step">4. 준비됐으면 원하는 채팅방에 정확히 <code>Hello World</code>라고 보내고 <code>탐색 시작</code>을 누르세요.</div>
-      </div>
-      <input id="${config.chatInputId}" name="telegramChatId" type="hidden" value="${escapeHtml(currentChatId)}" />
-      <p class="panel-subtitle">목록에서 <code>이 그룹 사용</code>을 누르면 chat ID를 저장하고, 이어서 <code>연결 검증</code>으로 상태를 확인합니다.</p>
-      <div id="${config.statusId}" class="stack"></div>
-    </div>
-  `;
-}
-
-function clearDiscoveryPoller(context) {
-  const runtime = discoveryRuntime[context];
-  if (runtime?.poller) {
-    window.clearInterval(runtime.poller);
-    runtime.poller = null;
-  }
-}
-
-function getDiscoveryContextConfig(context) {
-  if (context === "setup") {
-    return {
-      startButtonId: "setup-chat-discovery-start",
-      stopButtonId: "setup-chat-discovery-stop",
-      verifyButtonId: "setup-telegram-verify-btn",
-      statusId: "setup-chat-discovery-status",
-      chatInputId: "setup-telegram-chat-id",
-      botTokenInputId: "setup-bot-token",
-    };
-  }
-
-  return {
-    startButtonId: "project-chat-discovery-start",
-    stopButtonId: "project-chat-discovery-stop",
-    verifyButtonId: "project-telegram-verify-btn",
-    statusId: "project-chat-discovery-status",
-    chatInputId: "telegram-chat-id-input",
-    botTokenInputId: null,
-  };
-}
-
 function getFolderBrowserConfig(context) {
   if (context === "setup") {
     return {
@@ -229,12 +82,6 @@ function formatDate(value) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
-}
-
-function getThreadSessionBadge(thread) {
-  return thread.codexSessionId
-    ? `<span class="badge success">codex linked</span>`
-    : `<span class="badge warning">codex pending</span>`;
 }
 
 function syncProjectNavigationState(projects) {
@@ -583,166 +430,6 @@ async function openFolderBrowser(context) {
   }
 }
 
-function renderDiscoveryStatus(context) {
-  const runtime = discoveryRuntime[context];
-  const config = getDiscoveryContextConfig(context);
-  const container = document.getElementById(config.statusId);
-
-  if (!container) {
-    return;
-  }
-
-  if (!runtime.data) {
-    container.innerHTML = runtime.selectedChatId
-      ? `
-        <div class="stack">
-          <div class="success-banner">chat id를 찾았습니다!</div>
-          <div class="folder-browser-panel">
-            <div><strong>${escapeHtml(runtime.selectedChatTitle || runtime.selectedChatId)}</strong></div>
-            <div class="muted">${escapeHtml(runtime.selectedChatId)}</div>
-          </div>
-        </div>
-      `
-      : `<div class="muted">준비가 끝났으면 원하는 채팅방에 <code>Hello World</code>를 보내고 탐색 시작을 누르세요.</div>`;
-    return;
-  }
-
-  const data = runtime.data;
-  const matchesHtml = data.matches?.length
-    ? data.matches
-        .map(
-          (match) => `
-            <div class="folder-browser-panel">
-              <div class="row-between">
-                <strong>${escapeHtml(match.telegramChatTitle)}</strong>
-                <button class="secondary-btn chat-discovery-select" data-context="${context}" data-chat-id="${escapeHtml(match.telegramChatId)}" data-chat-title="${escapeHtml(match.telegramChatTitle)}" type="button">이 그룹 사용</button>
-              </div>
-              <div class="status-grid">
-                <span class="badge">${escapeHtml(match.telegramChatId)}</span>
-                <span class="badge ${match.forumEnabled ? "success" : "warning"}">${match.forumEnabled ? "forum enabled" : "forum 확인 필요"}</span>
-                <span class="badge">${escapeHtml(match.chatType)}</span>
-              </div>
-              <div class="muted">${escapeHtml(formatDate(match.foundAt))}</div>
-            </div>
-          `,
-        )
-        .join("")
-    : `<div class="muted">아직 Hello World를 찾지 못했습니다.</div>`;
-
-  const statusTone =
-    data.status === "error"
-      ? "error-banner"
-      : data.status === "found"
-        ? "success-banner"
-        : "muted";
-
-  container.innerHTML = `
-    <div class="stack">
-      ${
-        runtime.selectedChatId
-          ? `
-            <div class="success-banner">chat id를 찾았습니다!</div>
-            <div class="folder-browser-panel">
-              <div><strong>${escapeHtml(runtime.selectedChatTitle || runtime.selectedChatId)}</strong></div>
-              <div class="muted">${escapeHtml(runtime.selectedChatId)}</div>
-            </div>
-          `
-          : ""
-      }
-      <div class="${statusTone}">
-        상태: ${escapeHtml(data.status)}
-        ${data.error ? ` / ${escapeHtml(data.error)}` : ""}
-      </div>
-      <div class="muted">원하는 채팅방에서 <code>Hello World</code>를 찾으면 아래에 후보가 나타납니다.</div>
-      <div class="muted">후보를 선택한 뒤 <code>연결 검증</code> 버튼을 눌러 forum/admin/topic 권한을 확인하세요.</div>
-      ${matchesHtml}
-    </div>
-  `;
-
-  container.querySelectorAll(".chat-discovery-select").forEach((button) => {
-    button.addEventListener("click", async () => {
-      setSelectedDiscoveryChat(context, button.dataset.chatId || "", button.dataset.chatTitle || "");
-      runtime.verification = null;
-      runtime.data = null;
-
-      if (runtime.sessionId) {
-        await stopDiscovery(context);
-      }
-
-      render();
-    });
-  });
-}
-
-async function pollDiscovery(context) {
-  const runtime = discoveryRuntime[context];
-  if (!runtime.sessionId) {
-    return;
-  }
-
-  try {
-    const data = await apiFetch(`/api/telegram/chat-discovery/${runtime.sessionId}`);
-    runtime.data = data;
-    renderDiscoveryStatus(context);
-
-    if (data.status === "error" || data.status === "expired" || data.status === "stopped") {
-      clearDiscoveryPoller(context);
-    }
-  } catch (error) {
-    runtime.data = {
-      status: "error",
-      error: error.message,
-      matches: [],
-    };
-    renderDiscoveryStatus(context);
-    clearDiscoveryPoller(context);
-  }
-}
-
-async function startDiscovery(context) {
-  const runtime = discoveryRuntime[context];
-  const config = getDiscoveryContextConfig(context);
-  const payload = {};
-
-  if (config.botTokenInputId) {
-    const botTokenInput = document.getElementById(config.botTokenInputId);
-    if (!botTokenInput?.value.trim()) {
-      window.alert("먼저 Telegram bot token을 입력하세요.");
-      return;
-    }
-
-    payload.botToken = botTokenInput.value.trim();
-  }
-
-  clearDiscoveryPoller(context);
-  setSelectedDiscoveryChat(context, "", "");
-  runtime.verification = null;
-
-  const data = await apiFetch("/api/telegram/chat-discovery/start", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-
-  runtime.sessionId = data.id;
-  runtime.data = data;
-  render();
-  runtime.poller = window.setInterval(() => {
-    void pollDiscovery(context);
-  }, 2000);
-}
-
-async function stopDiscovery(context) {
-  const runtime = discoveryRuntime[context];
-  if (runtime.sessionId) {
-    await fetch(`/api/telegram/chat-discovery/${runtime.sessionId}`, {
-      method: "DELETE",
-    }).catch(() => undefined);
-  }
-
-  clearDiscoveryPoller(context);
-  runtime.sessionId = null;
-}
-
 function bindFolderBrowsers() {
   ["setup", "project"].forEach((context) => {
     const config = getFolderBrowserConfig(context);
@@ -756,48 +443,6 @@ function bindFolderBrowsers() {
     button.addEventListener("click", async () => {
       await openFolderBrowser(context);
     });
-  });
-}
-
-function bindChatDiscoveryControls() {
-  ["setup", "project"].forEach((context) => {
-    const config = getDiscoveryContextConfig(context);
-    const startButton = document.getElementById(config.startButtonId);
-    const stopButton = document.getElementById(config.stopButtonId);
-    const verifyButton = document.getElementById(config.verifyButtonId);
-
-    if (startButton && startButton.dataset.bound !== "true") {
-      startButton.dataset.bound = "true";
-      startButton.addEventListener("click", async () => {
-        try {
-          await startDiscovery(context);
-        } catch (error) {
-          discoveryRuntime[context].data = {
-            status: "error",
-            error: error.message,
-            matches: [],
-          };
-          renderDiscoveryStatus(context);
-        }
-      });
-    }
-
-    if (stopButton && stopButton.dataset.bound !== "true") {
-      stopButton.dataset.bound = "true";
-      stopButton.addEventListener("click", async () => {
-        await stopDiscovery(context);
-        discoveryRuntime[context].data = null;
-        render();
-      });
-    }
-
-    if (verifyButton && verifyButton.dataset.bound !== "true") {
-      verifyButton.dataset.bound = "true";
-      verifyButton.dataset.context = context;
-      verifyButton.addEventListener("click", handleVerifyConnection);
-    }
-
-    renderDiscoveryStatus(context);
   });
 }
 
@@ -823,18 +468,6 @@ function bindMessageComposer() {
       textarea.form?.requestSubmit();
     }
   });
-}
-
-function connectionBadges(connection) {
-  if (!connection) {
-    return [`<span class="badge warning">미연결</span>`];
-  }
-
-  return [
-    `<span class="badge ${connection.forumEnabled ? "success" : "danger"}">forum</span>`,
-    `<span class="badge ${connection.botIsAdmin ? "success" : "danger"}">admin</span>`,
-    `<span class="badge ${connection.canManageTopics ? "success" : "danger"}">topics</span>`,
-  ];
 }
 
 function getSelectedProject() {
@@ -1049,7 +682,7 @@ function renderSetup() {
           <div>
             <span class="setup-kicker">Codex x Telegram</span>
             <h1>내 Telegram 계정으로 로그인해 forum supergroup을 직접 만듭니다.</h1>
-            <p>이제 Bot API 대신 MTProto 사용자 세션으로 동작합니다. 웹에서 보낸 메시지는 로그인한 Telegram 사용자 이름으로 전송됩니다.</p>
+            <p>MTProto 사용자 세션으로 동작합니다. 웹에서 보낸 메시지는 로그인한 Telegram 사용자 이름으로 전송됩니다.</p>
             <div class="checklist">
               <div class="check-item">로그인 완료 후 새 프로젝트를 만들면 forum supergroup이 자동 생성됩니다.</div>
               <div class="check-item">프로젝트 생성에는 그룹 이름과 로컬 폴더 경로만 필요합니다.</div>
@@ -1353,11 +986,6 @@ function renderProjectPanel(project, isNew) {
         <p class="panel-subtitle">${isNew ? "그룹 이름과 폴더 경로만 입력하면 forum supergroup을 자동으로 만들고 연결합니다." : "생성된 Telegram forum supergroup과 연결된 프로젝트입니다."}</p>
         ${state.projectError ? `<div class="error-banner">${escapeHtml(state.projectError)}</div>` : ""}
         ${state.projectSuccess ? `<div class="success-banner">${escapeHtml(state.projectSuccess)}</div>` : ""}
-        ${
-          !isNew && project?.connection && !project.connection.telegramAccessHash
-            ? `<div class="error-banner">이 프로젝트는 이전 Bot API 연결 데이터입니다. 새 프로젝트로 다시 생성하는 편이 안전합니다.</div>`
-            : ""
-        }
         <form id="project-form" class="form-grid" data-project-id="${project?.id || ""}">
           <label class="form-field">
             <span>그룹 이름</span>
@@ -1629,89 +1257,6 @@ async function handleProjectDelete() {
     await refreshApp();
   } catch (error) {
     state.projectError = error.message;
-    render();
-  }
-}
-
-async function handleVerifyConnection() {
-  const context = this.dataset.context || "project";
-  const config = getDiscoveryContextConfig(context);
-  const runtime = discoveryRuntime[context];
-  const chatId = document.getElementById(config.chatInputId)?.value.trim() || "";
-
-  if (context === "setup") {
-    state.setupError = null;
-    state.setupSuccess = null;
-  } else {
-    state.projectError = null;
-    state.projectSuccess = null;
-  }
-
-  if (!chatId) {
-    if (context === "setup") {
-      state.setupError = "먼저 Hello World 탐색으로 Telegram supergroup을 선택하세요.";
-    } else {
-      state.projectError = "먼저 Hello World 탐색으로 Telegram supergroup을 선택하세요.";
-    }
-    render();
-    return;
-  }
-
-  try {
-    let result;
-
-    if (context === "setup") {
-      const botToken = document.getElementById("setup-bot-token")?.value.trim();
-      if (!botToken) {
-        state.setupError = "먼저 Telegram bot token을 입력하세요.";
-        render();
-        return;
-      }
-
-      result = await apiFetch("/api/telegram/verify-connection", {
-        method: "POST",
-        body: JSON.stringify({
-          botToken,
-          telegramChatId: chatId,
-        }),
-      });
-      runtime.verification = result;
-      setSelectedDiscoveryChat(context, result.verification.telegramChatId, result.verification.telegramChatTitle || "");
-      state.setupSuccess = `검증 완료: ${result.verification.telegramChatTitle || result.verification.telegramChatId}`;
-      render();
-      return;
-    }
-
-    const projectForm = document.getElementById("project-form");
-    const projectId = projectForm.dataset.projectId;
-
-    if (projectId) {
-      result = await apiFetch(`/api/projects/${projectId}/telegram/verify`, {
-        method: "POST",
-        body: JSON.stringify({ telegramChatId: chatId }),
-      });
-      runtime.verification = result;
-      setSelectedDiscoveryChat(context, result.verification.telegramChatId, result.verification.telegramChatTitle || "");
-      state.projectSuccess = `검증 완료: ${result.verification.telegramChatTitle || result.verification.telegramChatId}`;
-      await refreshApp();
-      return;
-    }
-
-    result = await apiFetch("/api/telegram/verify-connection", {
-      method: "POST",
-      body: JSON.stringify({ telegramChatId: chatId }),
-    });
-    runtime.verification = result;
-    setSelectedDiscoveryChat(context, result.verification.telegramChatId, result.verification.telegramChatTitle || "");
-    state.projectSuccess = `검증 완료: ${result.verification.telegramChatTitle || result.verification.telegramChatId}`;
-    render();
-  } catch (error) {
-    runtime.verification = null;
-    if (context === "setup") {
-      state.setupError = error.message;
-    } else {
-      state.projectError = error.message;
-    }
     render();
   }
 }

@@ -45,39 +45,8 @@ export class CodexExecutionError extends Error {
 
 let codexQueue: Promise<unknown> = Promise.resolve();
 
-function buildInitialPrompt(input: CodexTurnInput): string {
-  const topicName = input.thread.telegramTopicName || input.thread.title;
-
-  return [
-    "이 세션은 Telegram forum topic과 연결된 실제 Codex 작업 쓰레드다.",
-    `프로젝트 이름: ${input.project.name}`,
-    `프로젝트 폴더: ${input.project.folderPath}`,
-    `Telegram topic 제목: ${topicName}`,
-    `Telegram topic ID: ${input.thread.telegramTopicId}`,
-    "이후 대화는 모두 이 프로젝트 문맥에서 처리한다.",
-    "응답 규칙:",
-    "- Telegram에 그대로 전달되므로 한국어로 간결하게 답한다.",
-    "- 실제로 코드/파일을 확인하거나 수정해야 하면 Codex CLI 도구를 사용해 작업한다.",
-    "- 필요할 때만 코드 블록을 사용한다.",
-    "- 완료 후에는 핵심 결과만 짧게 설명한다.",
-    "",
-    "첫 사용자 메시지:",
-    `발신 경로: ${input.source}`,
-    `발신자: ${input.senderName}`,
-    input.userMessage,
-  ].join("\n");
-}
-
-function buildResumePrompt(input: CodexTurnInput): string {
-  return [
-    "새 사용자 메시지다.",
-    `발신 경로: ${input.source}`,
-    `발신자: ${input.senderName}`,
-    "이전 세션 문맥을 유지한 채 이어서 작업한다.",
-    "응답은 Telegram에 그대로 전달될 문장으로 작성한다.",
-    "",
-    input.userMessage,
-  ].join("\n");
+function buildCodexPrompt(input: CodexTurnInput): string {
+  return input.userMessage.trim();
 }
 
 async function runCodexCommand(input: {
@@ -233,7 +202,7 @@ async function runCodexCommand(input: {
 }
 
 export function runCodexTurn(input: CodexTurnInput): Promise<CodexTurnResult> {
-  const prompt = input.thread.codexSessionId ? buildResumePrompt(input) : buildInitialPrompt(input);
+  const prompt = buildCodexPrompt(input);
   const task = () =>
     runCodexCommand({
       cwd: input.project.folderPath,

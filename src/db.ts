@@ -187,30 +187,6 @@ db.exec(`
   );
 `);
 
-function columnExists(tableName: string, columnName: string): boolean {
-  const rows = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
-  return rows.some((row) => row.name === columnName);
-}
-
-function ensureColumn(tableName: string, definition: string): void {
-  const columnName = definition.split(" ")[0];
-  if (!columnExists(tableName, columnName)) {
-    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${definition}`);
-  }
-}
-
-ensureColumn("project_telegram_connections", "telegram_access_hash TEXT");
-ensureColumn("project_telegram_connections", "forum_enabled INTEGER NOT NULL DEFAULT 0");
-ensureColumn("threads", "telegram_topic_name TEXT");
-ensureColumn("threads", "codex_session_id TEXT");
-ensureColumn("threads", "origin TEXT NOT NULL DEFAULT 'app'");
-ensureColumn("threads", "status TEXT NOT NULL DEFAULT 'open'");
-ensureColumn("messages", "source TEXT NOT NULL DEFAULT 'web'");
-ensureColumn("messages", "sender_name TEXT");
-ensureColumn("messages", "sender_telegram_user_id TEXT");
-ensureColumn("messages", "telegram_message_id INTEGER");
-ensureColumn("messages", "error_text TEXT");
-
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at DESC);
   CREATE INDEX IF NOT EXISTS idx_threads_project_id ON threads(project_id);
@@ -334,7 +310,6 @@ export function saveTelegramAuth(input: {
 
 export function clearTelegramAuth(): void {
   const keys = [
-    "app_name",
     "telegram_api_id",
     "telegram_api_hash",
     "telegram_phone_number",
