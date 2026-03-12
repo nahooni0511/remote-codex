@@ -1,0 +1,147 @@
+.page {
+  display: grid;
+  gap: 1rem;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.kicker {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+}
+
+.hero h1 {
+  margin: 0.35rem 0;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.heroActions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.summaryCard {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.summaryCard span {
+  color: var(--muted);
+}
+
+.summaryCard strong {
+  font-size: 1.6rem;
+}
+
+.groupList {
+  display: grid;
+  gap: 1rem;
+}
+
+.projectGroup,
+.threadGroup,
+.jobCard {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.projectGroup {
+  padding: 1rem;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.projectHeader h2,
+.threadHeader h3 {
+  margin: 0;
+}
+
+.threadGroup {
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.threadHeader,
+.jobMain,
+.jobFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.threadHeader p,
+.jobMain p,
+.promptPreview,
+.jobFooter span {
+  margin: 0;
+  color: var(--muted);
+}
+
+.jobList {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.jobCard {
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.statusActive,
+.statusDisabled {
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.statusActive {
+  background: rgba(45, 212, 191, 0.12);
+  color: var(--teal);
+}
+
+.statusDisabled {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+
+.jobActions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 820px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+}

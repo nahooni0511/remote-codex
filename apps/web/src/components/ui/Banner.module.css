@@ -1,0 +1,25 @@
+.banner {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.error {
+  color: #ffd7d1;
+  background: rgba(143, 32, 20, 0.24);
+  border-color: rgba(255, 123, 123, 0.25);
+}
+
+.success {
+  color: #d9ffef;
+  background: rgba(9, 92, 69, 0.22);
+  border-color: rgba(45, 212, 191, 0.22);
+}
+
+.info {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+}

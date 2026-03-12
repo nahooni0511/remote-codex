@@ -1,0 +1,20 @@
+.emptyState {
+  display: grid;
+  gap: 0.6rem;
+  padding: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-lg);
+}
+
+.emptyState h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.emptyState p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}

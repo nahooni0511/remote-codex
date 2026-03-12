@@ -1,0 +1,118 @@
+.sidebar {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1.2rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header h2 {
+  margin: 0.2rem 0 0;
+}
+
+.kicker {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+}
+
+.projectList {
+  overflow: auto;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.projectCard {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.projectHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.toggle {
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.projectLink,
+.threadLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.projectLink {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.25rem 0;
+}
+
+.projectLink strong {
+  display: block;
+  font-size: 0.98rem;
+}
+
+.projectLink span {
+  display: block;
+  color: var(--muted);
+  margin-top: 0.24rem;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.projectLinkActive strong {
+  color: var(--accent);
+}
+
+.threadList {
+  display: grid;
+  gap: 0.35rem;
+  padding-left: 2.6rem;
+}
+
+.threadLink {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+}
+
+.threadLinkActive {
+  color: var(--text);
+  background: rgba(255, 136, 84, 0.14);
+}
+
+.threadDot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.threadCreate {
+  justify-content: flex-start;
+}

@@ -1,0 +1,92 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 6, 10, 0.75);
+  backdrop-filter: blur(10px);
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+  width: min(720px, calc(100vw - 2rem));
+  max-height: min(80vh, 760px);
+  overflow: auto;
+  display: grid;
+  gap: 1rem;
+  padding: 1.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xl);
+  background: var(--panel-strong);
+  box-shadow: var(--shadow-lg);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header h3,
+.header p {
+  margin: 0;
+}
+
+.header p {
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+.tree,
+.children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.node {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.nodeRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.toggle {
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.toggle:disabled {
+  opacity: 0.5;
+}
+
+.select {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.dimmed {
+  color: var(--muted);
+  padding-left: 2.2rem;
+}
