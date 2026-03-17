@@ -1,4 +1,9 @@
-:root {
+* {
+  box-sizing: border-box;
+}
+
+body.relay-web-theme {
+  margin: 0;
   color-scheme: light;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   background:
@@ -7,24 +12,16 @@
   color: #211b12;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}
-
-a {
+body.relay-web-theme a {
   color: #0e6d67;
 }
 
-button,
-input {
+body.relay-web-theme button,
+body.relay-web-theme input {
   font: inherit;
 }
 
-button {
+body.relay-web-theme button {
   border: 0;
   border-radius: 999px;
   padding: 0.85rem 1.3rem;
@@ -33,32 +30,32 @@ button {
   cursor: pointer;
 }
 
-button:disabled {
+body.relay-web-theme button:disabled {
   cursor: wait;
   opacity: 0.5;
 }
 
-.buttonGhost {
+body.relay-web-theme .buttonGhost {
   background: rgba(15, 97, 93, 0.12);
   color: #0f615d;
 }
 
-.buttonSecondary {
+body.relay-web-theme .buttonSecondary {
   background: rgba(15, 97, 93, 0.12);
   color: #0f615d;
 }
 
-.page {
+body.relay-web-theme .page {
   min-height: 100vh;
   padding: 2rem;
 }
 
-.page--centered {
+body.relay-web-theme .page--centered {
   display: grid;
   place-items: center;
 }
 
-.hero {
+body.relay-web-theme .hero {
   max-width: 72rem;
   margin: 0 auto 2rem;
   padding: 2rem;
@@ -68,18 +65,19 @@ button:disabled {
   box-shadow: 0 20px 50px rgba(19, 57, 56, 0.18);
 }
 
-.hero--narrow {
+body.relay-web-theme .hero--narrow {
   width: min(32rem, 100%);
 }
 
-.card {
+body.relay-web-theme .card {
   padding: 1.5rem;
   border-radius: 1.25rem;
   background: rgba(255, 255, 255, 0.94);
+  color: #211b12;
   box-shadow: 0 18px 48px rgba(33, 27, 18, 0.08);
 }
 
-.grid {
+body.relay-web-theme .grid {
   max-width: 72rem;
   margin: 0 auto;
   display: grid;
@@ -87,7 +85,7 @@ button:disabled {
   gap: 1rem;
 }
 
-.kicker {
+body.relay-web-theme .kicker {
   display: inline-block;
   margin-bottom: 0.75rem;
   font-size: 0.78rem;
@@ -96,28 +94,29 @@ button:disabled {
   opacity: 0.82;
 }
 
-.field {
+body.relay-web-theme .field {
   display: grid;
   gap: 0.45rem;
   margin-top: 1rem;
 }
 
-.field input {
+body.relay-web-theme .field input {
   width: 100%;
   padding: 0.9rem 1rem;
   border-radius: 1rem;
   border: 1px solid rgba(15, 97, 93, 0.2);
   background: rgba(255, 255, 255, 0.9);
+  color: #211b12;
 }
 
-.actions {
+body.relay-web-theme .actions {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
   margin-top: 1rem;
 }
 
-.notice {
+body.relay-web-theme .notice {
   margin-top: 1rem;
   display: grid;
   gap: 0.35rem;
@@ -126,23 +125,23 @@ button:disabled {
   background: rgba(255, 255, 255, 0.14);
 }
 
-.meta {
+body.relay-web-theme .meta {
   color: #655647;
   font-size: 0.92rem;
 }
 
-.status {
+body.relay-web-theme .status {
   font-weight: 600;
 }
 
-.status--online {
+body.relay-web-theme .status--online {
   color: #13785f;
 }
 
-.status--offline {
+body.relay-web-theme .status--offline {
   color: #a14f2b;
 }
 
-.errorText {
+body.relay-web-theme .errorText {
   color: #ae402d;
 }
