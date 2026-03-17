@@ -6,10 +6,10 @@ type CenteredStatusProps = {
 
 export function CenteredStatus({ title, description, tone = "default" }: CenteredStatusProps) {
   return (
-    <main className="page page--centered">
-      <section className="card hero--narrow">
+    <main className="relayPage relayPageCentered">
+      <section className="relayCard relayHeroNarrow">
         <h1>{title}</h1>
-        {description ? <p className={tone === "error" ? "errorText" : undefined}>{description}</p> : null}
+        {description ? <p className={tone === "error" ? "relayErrorText" : undefined}>{description}</p> : null}
       </section>
     </main>
   );

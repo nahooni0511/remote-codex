@@ -1,6 +1,7 @@
 .panel {
   display: grid;
   gap: 1.2rem;
+  align-content: start;
 }
 
 .header {
@@ -83,7 +84,12 @@
   flex-wrap: wrap;
 }
 
+.actions {
+  align-items: center;
+}
+
 .section {
+  align-items: flex-start;
   padding: 1.1rem;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(255, 255, 255, 0.08);

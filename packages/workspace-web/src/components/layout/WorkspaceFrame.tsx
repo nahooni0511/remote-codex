@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 
 import { cx } from "../../lib/classNames";
 import { isPlainLeftClick, navigateWithTransition } from "../../lib/navigation";
+import { useWorkspaceRailSlot } from "../../app/WorkspaceChrome";
 import { Icon } from "../ui/Icon";
 import styles from "./WorkspaceFrame.module.css";
 
@@ -29,6 +30,7 @@ export function WorkspaceFrame({
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
+  const railSlot = useWorkspaceRailSlot();
 
   return (
     <main className={cx(styles.shell, !sidebar && styles.shellNoSidebar)}>
@@ -57,6 +59,7 @@ export function WorkspaceFrame({
               <span>{entry.label}</span>
             </NavLink>
           ))}
+          {railSlot ? <div className={styles.navExtra}>{railSlot}</div> : null}
         </nav>
         <div className={styles.userCard}>
           <span className={styles.userLabel}>Connected</span>

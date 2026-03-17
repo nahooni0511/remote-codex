@@ -15,6 +15,13 @@ export function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    document.documentElement.dataset.workspaceViewTransitions = "off";
+    return () => {
+      delete document.documentElement.dataset.workspaceViewTransitions;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!getIdToken()) {
       setSession(emptyRelaySession());
       setLoading(false);

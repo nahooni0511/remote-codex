@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { CenteredStatus } from "../components/CenteredStatus";
+import { RelayWorkspaceDock } from "../components/RelayWorkspaceDock";
 import { fetchRelayJson, getSelectedDeviceId } from "../lib/relay-api";
 import { BlockedWorkspacePage } from "./BlockedWorkspacePage";
 
@@ -120,5 +121,14 @@ export function WorkspaceShell({ session }: { session: RelayAuthSession }) {
     return <CenteredStatus title="Preparing workspace transport" description="Mounting the encrypted relay adapter." />;
   }
 
-  return <WorkspaceApp />;
+  return (
+    <WorkspaceApp
+      railSlot={
+        <RelayWorkspaceDock
+          deviceName={connectToken.device.displayName}
+          ownerEmail={connectToken.device.ownerEmail}
+        />
+      }
+    />
+  );
 }

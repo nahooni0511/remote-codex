@@ -9,6 +9,7 @@ import {
   answerBotCallbackQuery,
   editTopicMessageTextAsBot,
   getBotUpdates,
+  isTelegramBotChatAccessError,
   setScopedBotCommands,
   sendTopicMessageAsBot,
   sendTopicTypingAsBot,
@@ -399,11 +400,22 @@ export async function syncScopedBotCommandsForProject(project: ProjectRecord): P
   }
 
   const botConfig = getBotConfigOrThrow();
-  await setScopedBotCommands({
-    botToken: botConfig.botToken,
-    chatId: toBotApiChatId(connection.telegramChatId),
-    commands: BOT_COMMANDS,
-  });
+  try {
+    await setScopedBotCommands({
+      botToken: botConfig.botToken,
+      chatId: toBotApiChatId(connection.telegramChatId),
+      commands: BOT_COMMANDS,
+    });
+  } catch (error) {
+    if (isTelegramBotChatAccessError(error)) {
+      console.warn(
+        `Skipping bot command sync for project "${project.name}" (${connection.telegramChatId}): ${error.message}`,
+      );
+      return;
+    }
+
+    throw error;
+  }
 }
 
 export async function syncScopedBotCommandsForAllProjects(): Promise<void> {

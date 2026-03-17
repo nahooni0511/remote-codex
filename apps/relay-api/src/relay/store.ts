@@ -26,7 +26,16 @@ import {
   RPC_RESPONSE_CHANNEL,
   loadRelayStoreConfig,
 } from "./config";
-import { buildWsUrl, getRequestBaseUrl, hashSecret, parseBearerToken, toRelaySession, toSqlDateTime, toSummary } from "./helpers";
+import {
+  buildWsUrl,
+  fromSqlDateTime,
+  getRequestBaseUrl,
+  hashSecret,
+  parseBearerToken,
+  toRelaySession,
+  toSqlDateTime,
+  toSummary,
+} from "./helpers";
 import { parsePresencePayload, scanPresenceValues } from "./presence";
 import { ensureRelaySchema } from "./schema";
 import type {
@@ -329,7 +338,7 @@ export async function createRelayStore(options: { port: number }) {
       return null;
     }
 
-    const expiresAt = new Date(row.expires_at).toISOString();
+    const expiresAt = fromSqlDateTime(row.expires_at).toISOString();
     if (Date.parse(expiresAt) <= Date.now()) {
       await deleteConnectToken(token);
       return null;
@@ -416,7 +425,7 @@ export async function createRelayStore(options: { port: number }) {
         throw new Error("Pairing code has already been claimed.");
       }
 
-      if (Date.parse(new Date(pairingRow.expires_at).toISOString()) <= Date.now()) {
+      if (Date.parse(fromSqlDateTime(pairingRow.expires_at).toISOString()) <= Date.now()) {
         throw new Error("Pairing code expired.");
       }
 
@@ -648,6 +657,7 @@ export async function createRelayStore(options: { port: number }) {
     }
 
     const timestamp = new Date().toISOString();
+    const dbTimestamp = toSqlDateTime(timestamp);
     await pool.execute(
       `
         UPDATE relay_devices
@@ -669,8 +679,8 @@ export async function createRelayStore(options: { port: number }) {
         input.message.appVersion || input.message.payload.appVersion,
         input.message.protocolVersion,
         input.message.minSupportedProtocol,
-        timestamp,
-        timestamp,
+        dbTimestamp,
+        dbTimestamp,
         input.message.deviceId,
       ],
     );

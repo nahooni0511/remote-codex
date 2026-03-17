@@ -35,12 +35,12 @@ export function DevicesPage({
   }, [session.user?.email]);
 
   return (
-    <main className="page">
-      <section className="hero">
-        <span className="kicker">Device Routing</span>
+    <main className="relayPage">
+      <section className="relayHero">
+        <span className="relayKicker">Device Routing</span>
         <h1>Connected Devices</h1>
         <p>Select a device or mint a pairing code for a new local agent.</p>
-        <div className="actions">
+        <div className="relayActions">
           <button
             type="button"
             disabled={pairingPending}
@@ -66,32 +66,37 @@ export function DevicesPage({
           >
             {pairingPending ? "Creating..." : "Create Pairing Code"}
           </button>
-          <button type="button" className="buttonSecondary" onClick={onSignOut}>
+          <button type="button" className="relayButtonSecondary" onClick={onSignOut}>
             Sign Out
           </button>
         </div>
       </section>
 
       {pairingCode ? (
-        <section className="card notice">
-          <strong>Pairing Code</strong>
-          <p>{pairingCode.code}</p>
-          <p>Expires at {new Date(pairingCode.expiresAt).toLocaleString()}</p>
+        <section className="relayCard relayPairingCard">
+          <div className="relayPairingHeader">
+            <strong>Pairing Code</strong>
+            <span className="relayPairingExpiry">Expires at {new Date(pairingCode.expiresAt).toLocaleString()}</span>
+          </div>
+          <div className="relayPairingBody">
+            <code className="relayPairingCode">{pairingCode.code}</code>
+            <p className="relayPairingHint">Paste this code into the local workspace config page to pair the device.</p>
+          </div>
         </section>
       ) : null}
 
-      {error ? <section className="card errorText">{error}</section> : null}
+      {error ? <section className="relayCard relayErrorText">{error}</section> : null}
 
-      <section className="grid">
+      <section className="relayGrid">
         {(loading ? [] : devices).map((device) => (
-          <article key={device.deviceId} className="card">
+          <article key={device.deviceId} className="relayCard">
             <h2>{device.displayName}</h2>
             <p>{device.ownerEmail || "Unknown owner"}</p>
-            <p className={device.connected ? "status status--online" : "status status--offline"}>
+            <p className={device.connected ? "relayStatus relayStatusOnline" : "relayStatus relayStatusOffline"}>
               {device.connected ? "Online" : "Offline"}
             </p>
-            <p className="meta">Protocol {device.protocolVersion} · App {device.appVersion}</p>
-            {device.blockedReason ? <p className="errorText">{device.blockedReason.message}</p> : null}
+            <p className="relayMeta">Protocol {device.protocolVersion} · App {device.appVersion}</p>
+            {device.blockedReason ? <p className="relayErrorText">{device.blockedReason.message}</p> : null}
             <button
               type="button"
               disabled={!device.connected}
@@ -105,7 +110,7 @@ export function DevicesPage({
           </article>
         ))}
         {!loading && !devices.length ? (
-          <article className="card">
+          <article className="relayCard">
             <h2>No devices</h2>
             <p>No relay-connected devices are available for {session.user?.email || "this account"}.</p>
           </article>

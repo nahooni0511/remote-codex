@@ -1,127 +1,241 @@
+[한국어로 보기](README.ko.md)
+
 # Remote Codex
 
-Remote Codex is a monorepo for running Codex-backed workspaces on a local machine and reaching them remotely through a relay.
+Remote Codex is a web-first runtime for controlling a Codex-enabled PC from the web. It supports Telegram integration today, and a mobile app is planned, but this README focuses on the current web-based flow.
 
-The repository contains:
+> The most stable documented path today is local web plus hosted relay web.
 
-- `apps/remote-codex-agent`: the local runtime, HTTP API, WebSocket server, Telegram integration, relay bridge, and update flow
-- `apps/remote-codex-web`: the local browser shell that talks directly to the local agent
-- `apps/relay-api`: the relay control plane and encrypted bridge server
-- `apps/relay-web`: the remote web shell for login, device selection, pairing code issuance, and remote workspace entry
-- `apps/relay-mobile`: the Expo mobile shell
-- `packages/workspace-web`: the shared workspace UI used by local and remote web
-- `packages/client-core`: shared relay client, encryption, and rendering helpers
-- `packages/contracts`: shared DTOs, bridge protocol types, and realtime contracts
-- `packages/remote-codex`: the publishable npm package for home-server installs
+## Overview
 
-## Architecture
+Remote Codex runs across two planes:
 
-Remote Codex is split into two execution planes:
+- `local runtime`: runs on the PC where Codex is installed and includes the local web UI, Telegram integration, and relay bridge
+- `hosted relay`: the control plane that lets an authenticated user find and connect to their paired devices remotely
+- `local web`: the UI you open directly on the local machine or local network
+- `remote web`: the UI you open on `remote-codex.com`, which reaches the paired device through the relay
 
-- `device plane`: your machine runs `remote-codex-agent` and exposes a local workspace at `http://localhost:3000`
-- `relay plane`: a hosted relay accepts authenticated remote clients, issues pairing codes, and forwards encrypted workspace traffic to the paired device
+In practice, you can use the local web directly on your machine and use the hosted relay web when you need remote access to the same workspace.
 
-After a device is paired, local and remote web both use the same shared workspace app. The main difference is transport:
+## Quick Start
 
-- local web -> direct HTTP and WebSocket to the local agent
-- remote web/mobile -> authenticated relay bridge with encrypted payloads
+This section is optimized for the packaged install path, not monorepo development.
 
-## Monorepo Commands
+### Requirements
 
-Install dependencies:
+- Node.js 20 or later
+- npm
+- Codex login already completed on the local machine
+- Telegram account, `api_id`, `api_hash`, and bot token if you want Telegram-backed flows
+
+### Install
+
+```bash
+npm install -g @everyground/remote-codex
+```
+
+### Run
+
+```bash
+remote-codex
+```
+
+Then open:
+
+- `http://localhost:3000`
+
+### Default Data Directory
+
+- `~/.remote-codex`
+
+### Common Environment Variables
+
+| Variable | Description |
+| --- | --- |
+| `REMOTE_CODEX_DATA_DIR` | Overrides the runtime data directory |
+| `REMOTE_CODEX_PORT` | Overrides the local HTTP port |
+| `REMOTE_CODEX_HOST` | Overrides the local bind host |
+| `REMOTE_CODEX_PACKAGE_NAME` | Overrides the package used for update checks |
+| `REMOTE_CODEX_NPM_REGISTRY` | Overrides the npm registry used for update checks |
+
+More package-specific details are available in [packages/remote-codex/README.md](packages/remote-codex/README.md).
+
+## Web-Based Usage
+
+Remote Codex is currently documented as a web-first product.
+
+### Local Web
+
+After starting the local runtime and opening `http://localhost:3000`, the main screens are:
+
+- `Chat`: open projects and threads and talk to Codex directly
+- `Config`: manage model preferences, updates, and relay pairing
+- `Setup`: connect Telegram user and bot credentials
+
+Typical local usage looks like this:
+
+1. Run `remote-codex`
+2. Open `http://localhost:3000`
+3. Connect Telegram in `Setup` if you need it
+4. Use Codex in `Chat`
+5. Pair the device in `Config` if you want remote access
+
+### Remote Web
+
+The hosted relay flow looks like this:
+
+1. Sign in on `https://remote-codex.com`
+2. Create a pairing code on the `devices` page
+3. Open `Config` on the local device and enter the pairing code and relay server URL
+4. Finish pairing
+5. Select the device from remote web and enter the workspace through the relay
+
+This README only documents the hosted relay flow. It does not include self-hosted relay setup instructions.
+
+## Telegram Integration
+
+Telegram support is optional. The local web and relay web flows work without it.
+
+The high-level flow is:
+
+1. Get `api_id` and `api_hash` from [`my.telegram.org`](https://my.telegram.org)
+2. Open the local `Setup` screen and enter `API ID`, `API Hash`, phone number, and bot token
+3. Enter the login code delivered by Telegram
+4. Enter your 2FA password if your Telegram account requires it
+
+Notes:
+
+- Telegram user login and bot token are different inputs
+- If authentication fails, verify the values in the `Setup` screen first
+- When Telegram is connected, project and thread flows can be connected to Telegram channels and topics
+
+References:
+
+- [`my.telegram.org`](https://my.telegram.org)
+- [Telegram API credentials guide](https://core.telegram.org/api/obtaining_api_id)
+
+## Relay Pairing
+
+Relay pairing connects one local device to the hosted remote access plane.
+
+The standard hosted relay flow is:
+
+1. Sign in on `https://remote-codex.com`
+2. Create a pairing code on the `devices` page
+3. Open local `Config`
+4. Enter the `Pairing Code` and `Relay Server URL`
+5. Once paired, the device becomes selectable from remote web
+
+Default hosted relay URL:
+
+- `https://relay.remote-codex.com`
+
+Local testing example:
+
+- `http://localhost:3100`
+
+URL rules:
+
+- Hosted relay endpoints must use `HTTPS`
+- Only localhost development is allowed over plain `HTTP`
+- If you paste a relay URL with a path, it is normalized to its origin before storage
+
+## Security
+
+This section describes the current implementation as it actually works, not as marketing.
+
+### What Is Protected
+
+- Remote relay access requires an authenticated remote web session first
+- After a device is selected, the relay issues a short-lived `connect token`
+  - current implementation TTL: `5 minutes`
+- Pairing also uses a short-lived one-time `pairing code`
+  - current implementation TTL: `10 minutes`
+- Workspace request and response payloads crossing the relay are wrapped in `nacl-box` encrypted envelopes
+- Device-side `device secret` and public/secret key material are used for device authentication and encrypted bridge sessions
+
+In other words, the relay decides who can attach to which device, while the actual workspace HTTP and realtime payloads are forwarded in encrypted form.
+
+### What the Relay Can Still Know
+
+The relay is not a full zero-knowledge service.
+
+It can still see control-plane metadata such as:
+
+- which account owns which device
+- whether a device is online or offline
+- pairing code and connect token lifecycle data
+- device identifiers, owner labels or emails, and protocol or app version metadata
+
+What it is meant to protect:
+
+- workspace request bodies
+- workspace response bodies
+- plaintext contents of realtime payloads
+
+The right mental model is:
+
+- you still trust the relay operator with control-plane and metadata visibility
+- the workspace traffic itself is forwarded as encrypted payloads
+- calling it a fully zero-knowledge relay would be inaccurate
+
+## Current Status
+
+This README intentionally documents the stable path, not every experimental surface.
+
+- Local web and hosted relay web are the main supported usage flows
+- Telegram integration exists and is part of the local runtime
+- Relay pairing and remote workspace entry are implemented and documentable
+- The mobile app exists in the repo, but it is not ready to be the primary path documented here
+
+## Troubleshooting
+
+### Local web does not open
+
+- Make sure the `remote-codex` process is actually running
+- Make sure you are opening `http://localhost:3000`
+- If you changed the port, verify `REMOTE_CODEX_PORT`
+
+### Telegram authentication fails
+
+- Recheck `api_id`, `api_hash`, phone number, and bot token
+- Make sure the login code arrived in the official Telegram app
+- If 2FA is enabled, the password step may be required
+
+### Relay pairing fails
+
+- Check whether the pairing code expired
+- Check whether the relay URL is `https://relay.remote-codex.com` or a valid localhost development URL
+- If the device was already paired, try `Unpair` in `Config` and then pair again
+
+### `redirect_mismatch` happens during relay login
+
+- For hosted usage, restart from the official login entrypoint
+- In monorepo local development, relay web uses `http://localhost:5173` for its callback configuration, so `127.0.0.1` or another port can fail
+
+## Developer Notes
+
+These commands are for monorepo development, not for the packaged end-user install.
+
+### Monorepo Commands
 
 ```bash
 npm install
-```
-
-Run everything needed for local development:
-
-```bash
 npm run dev
-```
-
-Useful subsets:
-
-```bash
 npm run dev:local
 npm run dev:relay
 npm run build
 npm run test
 ```
 
-E2E entry points:
+### Local Dev Endpoints
 
-```bash
-npm run e2e
-npm run e2e:remote
-npm run e2e:remote:blocked
-```
+- local agent: `http://localhost:3000`
+- local web dev: `http://localhost:4173`
+- relay API dev: `http://localhost:3100`
+- relay web dev: `http://localhost:5173`
 
-## Local Runtime
+Additional references:
 
-The local runtime is the part you install on a workstation or home server. It bundles:
-
-- the local agent
-- the local web UI
-- the relay pairing flow
-
-When running locally, the main UI is served from:
-
-- `http://localhost:3000`
-
-The local `Config` screen includes the relay pairing flow. A user can:
-
-1. sign in to the remote relay web
-2. create a pairing code
-3. open local `Config`
-4. enter the pairing code and relay URL
-5. connect the device to the relay
-
-## Publishable Package
-
-The publish target is:
-
-- `@everyground/remote-codex`
-
-After publish, a machine with Node.js and npm installed can run:
-
-```bash
-npm install -g @everyground/remote-codex
-remote-codex
-```
-
-By default, runtime data is stored in:
-
-- `~/.remote-codex`
-
-## Relay Stack
-
-The current hosted layout is:
-
-- `remote-codex.com`: remote web shell
-- `relay.remote-codex.com`: relay API and bridge
-
-Typical remote flow:
-
-1. sign in on `remote-codex.com`
-2. choose a paired device
-3. enter the shared workspace
-4. relay routes HTTP and realtime traffic to the paired device
-
-## Major Features
-
-- Telegram-backed project and thread integration
-- local browser workspace
-- remote browser workspace
-- device pairing via pairing codes
-- relay bridge with encrypted payload forwarding
-- remote device updates triggered from UI
-- shared workspace UI across local and remote web
-- Expo-based mobile relay shell
-
-## Repository Notes
-
-- The root workspace is private and is not published.
-- The npm package is produced from `packages/remote-codex`.
-- The published CLI command remains `remote-codex`.
-- Internal workspace packages continue to use the `@remote-codex/*` scope inside the monorepo.
+- package runtime guide: [packages/remote-codex/README.md](packages/remote-codex/README.md)
+- beta readiness checklist: [docs/public-beta-checklist.md](docs/public-beta-checklist.md)

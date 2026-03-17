@@ -7,7 +7,8 @@ import type {
   TurnSummaryPayload,
   UserInputAnswers,
 } from "@remote-codex/contracts";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { LiveStreamState } from "../../lib/chat";
 import { Banner } from "../../components/ui/Banner";
 import { Button } from "../../components/ui/Button";
@@ -15,6 +16,9 @@ import { Icon } from "../../components/ui/Icon";
 import type { ChatNotice } from "./notice";
 import { AttachmentChips, formatEffortLabel, LiveStream, MessageRow } from "./ThreadPanelParts";
 import styles from "./ThreadPanel.module.css";
+
+const COMPOSER_INPUT_MIN_HEIGHT = 48;
+const COMPOSER_INPUT_MAX_HEIGHT = 240;
 
 export function ThreadPanel({
   thread,
@@ -79,7 +83,20 @@ export function ThreadPanel({
 }) {
   const feedRef = useRef<HTMLDivElement | null>(null);
   const menuWrapRef = useRef<HTMLDivElement | null>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const syncComposerInputHeight = useEffectEvent(() => {
+    const textarea = composerInputRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    textarea.style.height = "0px";
+    const nextHeight = Math.min(textarea.scrollHeight, COMPOSER_INPUT_MAX_HEIGHT);
+    textarea.style.height = `${Math.max(nextHeight, COMPOSER_INPUT_MIN_HEIGHT)}px`;
+    textarea.style.overflowY = textarea.scrollHeight > COMPOSER_INPUT_MAX_HEIGHT ? "auto" : "hidden";
+  });
 
   useEffect(() => {
     const element = feedRef.current;
@@ -108,6 +125,21 @@ export function ThreadPanel({
     };
   }, [menuOpen]);
 
+  useLayoutEffect(() => {
+    syncComposerInputHeight();
+  }, [draft]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      syncComposerInputHeight();
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
   const latestUndoableTurnRunId = useMemo(() => {
     const summaries = messages
       .map((message) => message.payload)
@@ -121,6 +153,28 @@ export function ThreadPanel({
   const selectedModelId = thread.composerSettings.modelOverride || thread.effectiveModel || modelOptions[0]?.value || "";
   const selectedModel = modelOptions.find((entry) => entry.value === selectedModelId) || modelOptions[0] || null;
   const selectedEffortValue = thread.composerSettings.reasoningEffortOverride || "__default__";
+
+  const handleComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) {
+      return;
+    }
+
+    if (event.shiftKey) {
+      event.preventDefault();
+      const textarea = event.currentTarget;
+      textarea.setRangeText("\n", textarea.selectionStart, textarea.selectionEnd, "end");
+      onDraftChange(textarea.value);
+      syncComposerInputHeight();
+      return;
+    }
+
+    if (event.altKey || event.ctrlKey || event.metaKey) {
+      return;
+    }
+
+    event.preventDefault();
+    onSubmit();
+  };
 
   return (
     <section className={styles.panel}>
@@ -170,15 +224,11 @@ export function ThreadPanel({
           <AttachmentChips attachments={attachments} removable onRemove={onRemoveAttachment} />
 
           <textarea
+            ref={composerInputRef}
             className={styles.composerInput}
             value={draft}
             onChange={(event) => onDraftChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                event.preventDefault();
-                onSubmit();
-              }
-            }}
+            onKeyDown={handleComposerKeyDown}
             placeholder="후속 변경 사항을 부탁하세요"
             rows={2}
           />

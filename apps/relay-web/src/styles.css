@@ -2,26 +2,35 @@
   box-sizing: border-box;
 }
 
-body.relay-web-theme {
+body {
   margin: 0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.relayPage {
   color-scheme: light;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   background:
     radial-gradient(circle at top left, rgba(255, 219, 170, 0.55), transparent 28%),
     linear-gradient(180deg, #f5f1e8 0%, #fbfaf5 100%);
   color: #211b12;
+  min-height: 100vh;
+  padding: 2rem;
 }
 
-body.relay-web-theme a {
+.relayPage a {
   color: #0e6d67;
 }
 
-body.relay-web-theme button,
-body.relay-web-theme input {
+.relayPage button,
+.relayPage input {
   font: inherit;
 }
 
-body.relay-web-theme button {
+.relayPage button {
   border: 0;
   border-radius: 999px;
   padding: 0.85rem 1.3rem;
@@ -30,32 +39,27 @@ body.relay-web-theme button {
   cursor: pointer;
 }
 
-body.relay-web-theme button:disabled {
+.relayPage button:disabled {
   cursor: wait;
   opacity: 0.5;
 }
 
-body.relay-web-theme .buttonGhost {
+.relayButtonGhost {
   background: rgba(15, 97, 93, 0.12);
   color: #0f615d;
 }
 
-body.relay-web-theme .buttonSecondary {
+.relayButtonSecondary {
   background: rgba(15, 97, 93, 0.12);
   color: #0f615d;
 }
 
-body.relay-web-theme .page {
-  min-height: 100vh;
-  padding: 2rem;
-}
-
-body.relay-web-theme .page--centered {
+.relayPageCentered {
   display: grid;
   place-items: center;
 }
 
-body.relay-web-theme .hero {
+.relayHero {
   max-width: 72rem;
   margin: 0 auto 2rem;
   padding: 2rem;
@@ -65,11 +69,11 @@ body.relay-web-theme .hero {
   box-shadow: 0 20px 50px rgba(19, 57, 56, 0.18);
 }
 
-body.relay-web-theme .hero--narrow {
+.relayHeroNarrow {
   width: min(32rem, 100%);
 }
 
-body.relay-web-theme .card {
+.relayCard {
   padding: 1.5rem;
   border-radius: 1.25rem;
   background: rgba(255, 255, 255, 0.94);
@@ -77,7 +81,7 @@ body.relay-web-theme .card {
   box-shadow: 0 18px 48px rgba(33, 27, 18, 0.08);
 }
 
-body.relay-web-theme .grid {
+.relayGrid {
   max-width: 72rem;
   margin: 0 auto;
   display: grid;
@@ -85,7 +89,7 @@ body.relay-web-theme .grid {
   gap: 1rem;
 }
 
-body.relay-web-theme .kicker {
+.relayKicker {
   display: inline-block;
   margin-bottom: 0.75rem;
   font-size: 0.78rem;
@@ -94,13 +98,13 @@ body.relay-web-theme .kicker {
   opacity: 0.82;
 }
 
-body.relay-web-theme .field {
+.relayField {
   display: grid;
   gap: 0.45rem;
   margin-top: 1rem;
 }
 
-body.relay-web-theme .field input {
+.relayField input {
   width: 100%;
   padding: 0.9rem 1rem;
   border-radius: 1rem;
@@ -109,14 +113,14 @@ body.relay-web-theme .field input {
   color: #211b12;
 }
 
-body.relay-web-theme .actions {
+.relayActions {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
   margin-top: 1rem;
 }
 
-body.relay-web-theme .notice {
+.relayNotice {
   margin-top: 1rem;
   display: grid;
   gap: 0.35rem;
@@ -125,23 +129,95 @@ body.relay-web-theme .notice {
   background: rgba(255, 255, 255, 0.14);
 }
 
-body.relay-web-theme .meta {
+.relayPairingCard {
+  max-width: 72rem;
+  margin: 0 auto 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.relayPairingHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.relayPairingExpiry {
   color: #655647;
   font-size: 0.92rem;
 }
 
-body.relay-web-theme .status {
+.relayPairingBody {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, rgba(15, 97, 93, 0.08), rgba(15, 97, 93, 0.02));
+  overflow: hidden;
+}
+
+.relayPairingCode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.85rem 1rem;
+  border-radius: 0.9rem;
+  background: #fffdfa;
+  border: 1px solid rgba(15, 97, 93, 0.18);
+  color: #0f615d;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: clamp(1.15rem, 3vw, 1.75rem);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  overflow-wrap: anywhere;
+}
+
+.relayPairingHint {
+  margin: 0;
+  color: #655647;
+  line-height: 1.5;
+}
+
+.relayRailAction {
+  display: grid;
+  justify-items: center;
+  gap: 0.28rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+}
+
+.relayRailAction:hover {
+  color: #94a3b8;
+}
+
+.relayRailAction span {
+  font-size: 0.58rem;
+  line-height: 1.2;
+}
+
+.relayMeta {
+  color: #655647;
+  font-size: 0.92rem;
+}
+
+.relayStatus {
   font-weight: 600;
 }
 
-body.relay-web-theme .status--online {
+.relayStatusOnline {
   color: #13785f;
 }
 
-body.relay-web-theme .status--offline {
+.relayStatusOffline {
   color: #a14f2b;
 }
 
-body.relay-web-theme .errorText {
+.relayErrorText {
   color: #ae402d;
 }

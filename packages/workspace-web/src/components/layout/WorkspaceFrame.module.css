@@ -64,6 +64,12 @@
   margin-bottom: 1rem;
 }
 
+.navExtra {
+  display: grid;
+  justify-items: center;
+  gap: 0.28rem;
+}
+
 .navLink {
   display: grid;
   justify-items: center;

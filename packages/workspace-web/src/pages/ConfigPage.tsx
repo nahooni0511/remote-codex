@@ -1,4 +1,10 @@
-import type { AppBootstrap, AppUpdateApplyResult, AppUpdateStatus } from "@remote-codex/contracts";
+import {
+  type AppBootstrap,
+  type AppUpdateApplyResult,
+  type AppUpdateStatus,
+  isLoopbackHost,
+  normalizeRelayServerUrl,
+} from "@remote-codex/contracts";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -13,6 +19,17 @@ import { getWorkspaceUserName } from "../lib/workspace";
 import styles from "./ConfigPage.module.css";
 
 type Notice = { tone: "error" | "success"; message: string } | null;
+
+const PROD_RELAY_SERVER_URL = "https://relay.remote-codex.com";
+const LOCAL_RELAY_SERVER_URL = "http://localhost:3100";
+
+function getDefaultRelayServerUrl(): string {
+  if (typeof window !== "undefined" && isLoopbackHost(window.location.hostname)) {
+    return LOCAL_RELAY_SERVER_URL;
+  }
+
+  return PROD_RELAY_SERVER_URL;
+}
 
 function createDraft(bootstrap: AppBootstrap) {
   return {
@@ -35,7 +52,7 @@ export function ConfigPage() {
   const [applyingUpdate, setApplyingUpdate] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [pairingCode, setPairingCode] = useState("");
-  const [relayServerUrl, setRelayServerUrl] = useState("https://relay.remote-codex.com");
+  const [relayServerUrl, setRelayServerUrl] = useState(() => getDefaultRelayServerUrl());
   const [pairing, setPairing] = useState(false);
   const [unpairing, setUnpairing] = useState(false);
 
@@ -49,7 +66,7 @@ export function ConfigPage() {
     }
 
     setDraft(createDraft(bootstrap));
-    setRelayServerUrl(bootstrap.integrations.global.serverUrl || "https://relay.remote-codex.com");
+    setRelayServerUrl(bootstrap.integrations.global.serverUrl || getDefaultRelayServerUrl());
   }, [bootstrap]);
 
   if (loading) {
@@ -135,9 +152,16 @@ export function ConfigPage() {
   };
   const pairWithRelay = async () => {
     const normalizedCode = pairingCode.trim().toUpperCase();
-    const normalizedServerUrl = relayServerUrl.trim().replace(/\/$/, "");
-    if (!normalizedCode || !normalizedServerUrl) {
+    if (!normalizedCode || !relayServerUrl.trim()) {
       setNotice({ tone: "error", message: "Pairing code와 Relay Server URL을 모두 입력하세요." });
+      return;
+    }
+
+    let normalizedServerUrl: string;
+    try {
+      normalizedServerUrl = normalizeRelayServerUrl(relayServerUrl);
+    } catch (error) {
+      handleError(error);
       return;
     }
 
@@ -172,7 +196,7 @@ export function ConfigPage() {
     try {
       await apiFetch<null>("/api/integrations/global", { method: "DELETE" });
       setPairingCode("");
-      setRelayServerUrl("https://relay.remote-codex.com");
+      setRelayServerUrl(getDefaultRelayServerUrl());
       await refreshBootstrap();
       setNotice({ tone: "success", message: "Relay pairing을 해제했습니다." });
     } catch (error) {
@@ -192,13 +216,24 @@ export function ConfigPage() {
         ? `Connected as ${bootstrap.integrations.telegram.userName || bootstrap.integrations.telegram.phoneNumber || "user"}`
         : "Not connected",
     ],
+  ];
+  const relayConnectionDetails: Array<[string, string]> = [
     [
-      "Global Relay",
+      "Status",
       bootstrap.integrations.global.connected
-        ? `Connected to ${bootstrap.integrations.global.serverUrl || "server"}`
+        ? "Connected"
         : bootstrap.integrations.global.paired
           ? "Paired but offline"
           : "Not paired",
+    ],
+    ["Server", bootstrap.integrations.global.serverUrl || "Not paired"],
+    ["Device ID", bootstrap.integrations.global.deviceId || "Not paired"],
+    ["Owner", bootstrap.integrations.global.ownerLabel || "Unknown owner"],
+    [
+      "Last Sync",
+      bootstrap.integrations.global.lastSyncAt
+        ? `${new Date(bootstrap.integrations.global.lastSyncAt).toLocaleString()} · ${formatRelativeTime(bootstrap.integrations.global.lastSyncAt)}`
+        : "No sync yet",
     ],
   ];
 
@@ -226,12 +261,24 @@ export function ConfigPage() {
             <p className={styles.cardMeta}>
               Telegram 연결은 선택 사항입니다. 관리가 필요하면 <Link to="/setup">integration 화면</Link>을 사용하세요.
             </p>
+          </article>
+
+          <article className={styles.card}>
+            <h2>Relay Connection</h2>
+            <div className={styles.readonlyGrid}>
+              {relayConnectionDetails.map(([label, value]) => (
+                <label key={label} className={styles.field}>
+                  <span>{label}</span>
+                  <input readOnly value={value} />
+                </label>
+              ))}
+            </div>
             <div className={styles.divider} />
             <div className={styles.formStack}>
               <div className={styles.sectionHeader}>
-                <h3>Relay Pairing</h3>
+                <h3>Pair With Relay</h3>
                 <p className={styles.cardMeta}>
-                  remote-codex.com에서 발급한 pairing code를 이 디바이스에 입력하면 relay에 등록됩니다.
+                  경로는 자동으로 제거됩니다. 원격 서버는 HTTPS만 허용되고, 로컬 테스트만 HTTP localhost를 사용할 수 있습니다.
                 </p>
               </div>
               <label className={styles.field}>
@@ -250,7 +297,8 @@ export function ConfigPage() {
                 <input
                   value={relayServerUrl}
                   onChange={(event) => setRelayServerUrl(event.target.value)}
-                  placeholder="https://relay.remote-codex.com"
+                  placeholder={getDefaultRelayServerUrl()}
+                  autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck={false}
                 />

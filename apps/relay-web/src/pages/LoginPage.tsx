@@ -19,12 +19,12 @@ export function LoginPage({
   }
 
   return (
-    <main className="page page--centered">
-      <section className="hero card hero--narrow">
-        <span className="kicker">Relay Access</span>
+    <main className="relayPage relayPageCentered">
+      <section className="relayHero relayCard relayHeroNarrow">
+        <span className="relayKicker">Relay Access</span>
         <h1>Remote Codex Sign In</h1>
         <p>Sign in with Cognito, then continue to your relay-connected devices.</p>
-        <div className="actions">
+        <div className="relayActions">
           <button
             type="button"
             disabled={pending}
@@ -39,11 +39,11 @@ export function LoginPage({
           >
             {pending ? "Redirecting..." : "Sign In with Cognito"}
           </button>
-          <button type="button" className="buttonSecondary" onClick={onSignOut}>
+          <button type="button" className="relayButtonSecondary" onClick={onSignOut}>
             Clear Session
           </button>
         </div>
-        {error ? <div className="errorText">{error}</div> : null}
+        {error ? <div className="relayErrorText">{error}</div> : null}
       </section>
     </main>
   );

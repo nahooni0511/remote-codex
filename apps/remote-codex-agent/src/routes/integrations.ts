@@ -1,5 +1,9 @@
 import { Router } from "express";
-import type { PairingCodeClaimResponse, PairingCodeClaimRequest } from "@remote-codex/contracts";
+import {
+  normalizeRelayServerUrl,
+  type PairingCodeClaimResponse,
+  type PairingCodeClaimRequest,
+} from "@remote-codex/contracts";
 
 import {
   getDeviceProfile,
@@ -39,13 +43,23 @@ integrationsRouter.get("/api/integrations", (_request, response) => {
 });
 
 integrationsRouter.post("/api/integrations/global", (request, response) => {
+  let serverUrl: string | null = null;
+  if (typeof request.body?.serverUrl === "string" && request.body.serverUrl.trim()) {
+    try {
+      serverUrl = normalizeRelayServerUrl(request.body.serverUrl);
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "Invalid relay server URL." });
+      return;
+    }
+  }
+
   const pairing = saveGlobalPairing({
     enabled: request.body?.enabled !== false,
     deviceId: typeof request.body?.deviceId === "string" ? request.body.deviceId.trim() || null : null,
     deviceSecret:
       typeof request.body?.deviceSecret === "string" ? request.body.deviceSecret.trim() || null : null,
     ownerLabel: typeof request.body?.ownerLabel === "string" ? request.body.ownerLabel.trim() || null : null,
-    serverUrl: typeof request.body?.serverUrl === "string" ? request.body.serverUrl.trim() || null : null,
+    serverUrl,
     wsUrl: typeof request.body?.wsUrl === "string" ? request.body.wsUrl.trim() || null : null,
     connected: Boolean(request.body?.connected),
     lastSyncAt: typeof request.body?.lastSyncAt === "string" ? request.body.lastSyncAt : null,
@@ -57,9 +71,18 @@ integrationsRouter.post("/api/integrations/global", (request, response) => {
 });
 
 integrationsRouter.post("/api/integrations/global/claim", async (request, response, next) => {
+  const pairingCode = typeof request.body?.pairingCode === "string" ? request.body.pairingCode.trim().toUpperCase() : "";
+  const serverUrlInput = typeof request.body?.serverUrl === "string" ? request.body.serverUrl : "";
+  let serverUrl = "";
+
   try {
-    const pairingCode = typeof request.body?.pairingCode === "string" ? request.body.pairingCode.trim().toUpperCase() : "";
-    const serverUrl = typeof request.body?.serverUrl === "string" ? request.body.serverUrl.trim().replace(/\/$/, "") : "";
+    serverUrl = serverUrlInput.trim() ? normalizeRelayServerUrl(serverUrlInput) : "";
+  } catch (error) {
+    response.status(400).json({ error: error instanceof Error ? error.message : "Invalid relay server URL." });
+    return;
+  }
+
+  try {
     if (!pairingCode || !serverUrl) {
       response.status(400).json({ error: "pairingCode and serverUrl are required." });
       return;
@@ -91,7 +114,7 @@ integrationsRouter.post("/api/integrations/global/claim", async (request, respon
       deviceId: claimed.deviceId,
       deviceSecret: claimed.deviceSecret,
       ownerLabel: claimed.ownerLabel,
-      serverUrl: claimed.serverUrl,
+      serverUrl: normalizeRelayServerUrl(claimed.serverUrl),
       wsUrl: claimed.wsUrl,
       connected: false,
       lastSyncAt: null,

@@ -350,6 +350,7 @@
 .composerInput {
   width: 100%;
   min-height: 48px;
+  max-height: 240px;
   padding: 0;
   resize: none;
   border: 0;
@@ -361,6 +362,7 @@
   line-height: 1.7142857143;
   outline: none;
   box-shadow: none;
+  overflow-y: hidden;
 }
 
 .composerInput::placeholder {

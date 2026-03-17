@@ -43,6 +43,23 @@ export class TelegramBotApiError extends Error {
   }
 }
 
+function normalizeTelegramBotErrorMessage(message: string): string {
+  return message.trim().toLowerCase();
+}
+
+export function isTelegramBotChatAccessError(error: unknown): error is TelegramBotApiError {
+  if (!(error instanceof TelegramBotApiError)) {
+    return false;
+  }
+
+  const message = normalizeTelegramBotErrorMessage(error.message);
+  return (
+    message.includes("bot was kicked from the supergroup chat") ||
+    message.includes("bot is not a member of the supergroup chat") ||
+    message.includes("not enough rights to manage bot commands")
+  );
+}
+
 interface BotApiEnvelope<T> {
   ok: boolean;
   result?: T;

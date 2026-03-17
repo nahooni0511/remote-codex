@@ -11,12 +11,12 @@ export function BlockedWorkspacePage({ device }: { device: RelayDeviceSummary })
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <main className="page page--centered">
-      <section className="hero card hero--narrow">
-        <span className="kicker">Protocol Blocked</span>
+    <main className="relayPage relayPageCentered">
+      <section className="relayHero relayCard relayHeroNarrow">
+        <span className="relayKicker">Protocol Blocked</span>
         <h1>{device.displayName}</h1>
         <p>{device.blockedReason?.message || "This device requires a newer local runtime."}</p>
-        <div className="actions">
+        <div className="relayActions">
           <button
             type="button"
             disabled={pending !== null}
@@ -51,7 +51,7 @@ export function BlockedWorkspacePage({ device }: { device: RelayDeviceSummary })
           </button>
           <button
             type="button"
-            className="buttonGhost"
+            className="relayButtonGhost"
             onClick={() => {
               setSelectedDeviceId(null);
               navigate("/devices");
@@ -61,12 +61,12 @@ export function BlockedWorkspacePage({ device }: { device: RelayDeviceSummary })
           </button>
         </div>
         {status ? (
-          <div className="notice">
+          <div className="relayNotice">
             <strong>{status.updateAvailable ? "Update available" : "No update available"}</strong>
             <span>{status.reason || ""}</span>
           </div>
         ) : null}
-        {error ? <div className="errorText">{error}</div> : null}
+        {error ? <div className="relayErrorText">{error}</div> : null}
       </section>
     </main>
   );

@@ -1,10 +1,29 @@
+import fs from "node:fs";
 import { createServer } from "node:http";
+import path from "node:path";
 
 import express from "express";
 
 import { registerRelayRoutes } from "./relay/routes";
 import { createRelayStore } from "./relay/store";
 import { attachRelayWebSocketServer } from "./relay/ws";
+
+function loadRelayEnv(): void {
+  const candidates = [
+    path.resolve(__dirname, "../.env"),
+    path.resolve(process.cwd(), ".env"),
+  ];
+
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate)) {
+      continue;
+    }
+
+    process.loadEnvFile(candidate);
+  }
+}
+
+loadRelayEnv();
 
 const PORT = Number(process.env.PORT || 3100);
 

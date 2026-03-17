@@ -78,6 +78,16 @@ export function ChatSidebar({
                     <span>{project.connection?.telegramChatTitle || project.folderPath}</span>
                   </div>
                 </Link>
+                <Button
+                  type="button"
+                  variant="icon"
+                  className={styles.projectCreate}
+                  aria-label={`${project.name}에 새 thread`}
+                  title={`${project.name}에 새 thread`}
+                  onClick={() => onCreateThread(project.id)}
+                >
+                  <Icon name="plus" />
+                </Button>
               </div>
 
               {expanded ? (
@@ -104,10 +114,6 @@ export function ChatSidebar({
                       <span className={styles.threadTitle}>{thread.title}</span>
                     </Link>
                   ))}
-                  <Button type="button" variant="ghost" className={styles.threadCreate} onClick={() => onCreateThread(project.id)}>
-                    <Icon name="plus" />
-                    새 thread
-                  </Button>
                 </div>
               ) : null}
             </section>

@@ -9,9 +9,17 @@ function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+function viewTransitionsDisabled(): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  return document.documentElement.dataset.workspaceViewTransitions === "off";
+}
+
 export function runWithViewTransition(update: () => void): void {
   const doc = document as ViewTransitionDocument;
-  if (prefersReducedMotion() || typeof doc.startViewTransition !== "function") {
+  if (prefersReducedMotion() || viewTransitionsDisabled() || typeof doc.startViewTransition !== "function") {
     update();
     return;
   }

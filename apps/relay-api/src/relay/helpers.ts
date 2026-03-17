@@ -34,6 +34,28 @@ export function toSqlDateTime(value: Date | string = new Date()): string {
   return date.toISOString().slice(0, 23).replace("T", " ");
 }
 
+export function fromSqlDateTime(value: Date | string): Date {
+  if (value instanceof Date) {
+    return new Date(
+      Date.UTC(
+        value.getFullYear(),
+        value.getMonth(),
+        value.getDate(),
+        value.getHours(),
+        value.getMinutes(),
+        value.getSeconds(),
+        value.getMilliseconds(),
+      ),
+    );
+  }
+
+  if (value.includes("T")) {
+    return new Date(value);
+  }
+
+  return new Date(value.replace(" ", "T") + "Z");
+}
+
 export function toRelaySession(
   row: Pick<RelayUserRow, "cognito_sub" | "email"> | null,
   expiresAt: string | null,
@@ -52,7 +74,7 @@ export function toRelaySession(
 }
 
 export function toSummary(row: RelayDeviceRow, connected: boolean): RelayDeviceSummary {
-  const lastSeenAt = row.last_seen_at ? new Date(row.last_seen_at).toISOString() : null;
+  const lastSeenAt = row.last_seen_at ? fromSqlDateTime(row.last_seen_at).toISOString() : null;
   return {
     deviceId: row.device_id,
     displayName: row.display_name,
