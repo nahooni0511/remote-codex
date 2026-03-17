@@ -1,9 +1,5 @@
 import { Router } from "express";
-import {
-  normalizeRelayServerUrl,
-  type PairingCodeClaimResponse,
-  type PairingCodeClaimRequest,
-} from "@remote-codex/contracts";
+import type { PairingCodeClaimResponse, PairingCodeClaimRequest } from "@remote-codex/contracts";
 
 import {
   getDeviceProfile,
@@ -13,6 +9,7 @@ import {
   getTelegramAuth,
   saveGlobalPairing,
 } from "../db";
+import { normalizeRelayServerUrl } from "../lib/relay";
 import { broadcastWorkspaceUpdated, clearTelegramRuntimeState, refreshRelayBridgeConnection } from "../services/runtime";
 import { getOrCreateRelayKeys } from "../services/relay-bridge/crypto";
 

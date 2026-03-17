@@ -11,6 +11,7 @@ import {
   parseOptionalPositiveInteger,
   validateFolderPath,
 } from "../src/lib/http";
+import { normalizeRelayServerUrl } from "../src/lib/relay";
 
 test("assertNonEmptyString trims values", () => {
   assert.equal(assertNonEmptyString("  hello  ", "value"), "hello");
@@ -32,4 +33,13 @@ test("numeric parsers reject invalid values", () => {
 test("validateFolderPath resolves existing directories", () => {
   const tempDir = mkdtempSync(path.join(os.tmpdir(), "remote-codex-"));
   assert.equal(validateFolderPath(tempDir), tempDir);
+});
+
+test("normalizeRelayServerUrl strips paths and only allows https or localhost http", () => {
+  assert.equal(
+    normalizeRelayServerUrl("https://relay.remote-codex.com/api/pairing-codes/abc?foo=bar#hash"),
+    "https://relay.remote-codex.com",
+  );
+  assert.equal(normalizeRelayServerUrl("http://localhost:3100/hello"), "http://localhost:3100");
+  assert.throws(() => normalizeRelayServerUrl("http://relay.remote-codex.com"));
 });
