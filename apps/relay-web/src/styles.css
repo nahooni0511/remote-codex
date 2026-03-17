@@ -1,0 +1,148 @@
+:root {
+  color-scheme: light;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(255, 219, 170, 0.55), transparent 28%),
+    linear-gradient(180deg, #f5f1e8 0%, #fbfaf5 100%);
+  color: #211b12;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: #0e6d67;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.85rem 1.3rem;
+  background: #0f615d;
+  color: #f8f5ee;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.buttonGhost {
+  background: rgba(15, 97, 93, 0.12);
+  color: #0f615d;
+}
+
+.buttonSecondary {
+  background: rgba(15, 97, 93, 0.12);
+  color: #0f615d;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.page--centered {
+  display: grid;
+  place-items: center;
+}
+
+.hero {
+  max-width: 72rem;
+  margin: 0 auto 2rem;
+  padding: 2rem;
+  border-radius: 1.5rem;
+  background: linear-gradient(135deg, #133938 0%, #225653 100%);
+  color: #f7f3eb;
+  box-shadow: 0 20px 50px rgba(19, 57, 56, 0.18);
+}
+
+.hero--narrow {
+  width: min(32rem, 100%);
+}
+
+.card {
+  padding: 1.5rem;
+  border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 48px rgba(33, 27, 18, 0.08);
+}
+
+.grid {
+  max-width: 72rem;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 1rem;
+}
+
+.kicker {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+.field {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1rem;
+}
+
+.field input {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(15, 97, 93, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.notice {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.meta {
+  color: #655647;
+  font-size: 0.92rem;
+}
+
+.status {
+  font-weight: 600;
+}
+
+.status--online {
+  color: #13785f;
+}
+
+.status--offline {
+  color: #a14f2b;
+}
+
+.errorText {
+  color: #ae402d;
+}

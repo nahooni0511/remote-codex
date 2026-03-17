@@ -1,0 +1,46 @@
+{
+  "name": "@everyground/remote-codex",
+  "version": "0.1.0",
+  "description": "Bundled local runtime for Remote Codex.",
+  "license": "MIT",
+  "type": "commonjs",
+  "homepage": "https://remote-codex.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nahooni0511/remote-codex.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nahooni0511/remote-codex/issues"
+  },
+  "keywords": [
+    "codex",
+    "relay",
+    "remote",
+    "workspace",
+    "telegram"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "remote-codex": "./bin/remote-codex.cjs"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "start": "node ./bin/remote-codex.cjs"
+  },
+  "dependencies": {
+    "@openai/codex": "^0.113.0",
+    "better-sqlite3": "^11.9.1",
+    "cron": "^4.4.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "telegram": "^2.26.22",
+    "tweetnacl": "^1.0.3",
+    "ws": "^8.19.0"
+  }
+}

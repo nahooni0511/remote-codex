@@ -1,18 +1,29 @@
 {
-  "name": "remote-codex",
+  "name": "remote-codex-monorepo",
   "private": true,
   "version": "0.1.0",
   "description": "Monorepo for Remote Codex web and API server.",
   "license": "MIT",
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "apps/remote-codex-agent",
+    "apps/remote-codex-web",
+    "apps/relay-api",
+    "apps/relay-web",
+    "apps/relay-mobile",
+    "packages/remote-codex",
+    "packages/workspace-web",
+    "packages/contracts",
+    "packages/client-core"
   ],
   "scripts": {
-    "dev": "concurrently -n api,web -c green,cyan \"npm run dev -w @remote-codex/api-server\" \"npm run dev -w @remote-codex/web\"",
+    "dev": "concurrently -n remote-codex-agent,remote-codex-web,relay-api,relay-web -c green,cyan,magenta,yellow \"npm run dev -w @remote-codex/remote-codex-agent\" \"npm run dev -w @remote-codex/remote-codex-web\" \"npm run dev -w @remote-codex/relay-api\" \"npm run dev -w @remote-codex/relay-web\"",
+    "dev:local": "concurrently -n remote-codex-agent,remote-codex-web -c green,cyan \"npm run dev -w @remote-codex/remote-codex-agent\" \"npm run dev -w @remote-codex/remote-codex-web\"",
+    "dev:relay": "concurrently -n relay-api,relay-web -c magenta,yellow \"npm run dev -w @remote-codex/relay-api\" \"npm run dev -w @remote-codex/relay-web\"",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "e2e": "playwright test",
+    "e2e:remote": "playwright test -c playwright.remote.config.ts",
+    "e2e:remote:blocked": "playwright test -c playwright.remote-blocked.config.ts",
     "e2e:realdata": "playwright test -c playwright.realdata.config.ts"
   },
   "engines": {

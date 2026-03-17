@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Relay Mobile",
+    "slug": "remote-codex-relay-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.remotecodex.globalmobile"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

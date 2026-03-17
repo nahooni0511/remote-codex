@@ -1,8 +1,8 @@
 import path from "node:path";
 import { defineConfig } from "@playwright/test";
 
-const portApi = 3000;
-const portWeb = 4173;
+const portApi = 3300;
+const portWeb = 4178;
 const e2eDbPath = path.join("/tmp", "remote-codex-e2e", "app.db");
 
 export default defineConfig({
@@ -16,7 +16,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "node tests/e2e/start-api.mjs",
+      command: "node tests/e2e/start-local-stack.mjs",
       url: `http://127.0.0.1:${portApi}/api/bootstrap`,
       reuseExistingServer: true,
       timeout: 30_000,
@@ -29,13 +29,12 @@ export default defineConfig({
       },
     },
     {
-      command: "npm run dev -w @remote-codex/web -- --host 127.0.0.1 --port 4173",
+      command: "npm run dev -w @remote-codex/remote-codex-web -- --host 127.0.0.1 --port 4178",
       url: `http://127.0.0.1:${portWeb}`,
       reuseExistingServer: true,
       timeout: 30_000,
       env: {
-        VITE_API_BASE_URL: `http://127.0.0.1:${portApi}`,
-        VITE_WS_URL: `ws://127.0.0.1:${portApi}/ws`,
+        VITE_DEV_API_TARGET: `http://127.0.0.1:${portApi}`,
       },
     },
   ],

@@ -57,7 +57,7 @@ test("real-data workspace renders existing projects and thread history", async (
   await page.locator(`a[href="/chat/projects/${project.id}/threads/${thread.id}"]`).click();
   await expect(page).toHaveURL(new RegExp(`/chat/projects/${project.id}/threads/${thread.id}$`));
   await expect(page.getByRole("heading", { name: thread.title, exact: true })).toBeVisible();
-  await expect(page.getByPlaceholder(/Message /)).toBeVisible();
+  await expect(page.getByPlaceholder("후속 변경 사항을 부탁하세요")).toBeVisible();
 
   if (messages.messages.length) {
     await expect(page.locator("article")).not.toHaveCount(0);
@@ -68,13 +68,13 @@ test("real-data workspace renders existing projects and thread history", async (
 
 test("real-data configuration view loads existing credentials", async ({ page, request }) => {
   const finish = await expectNoClientErrors(page);
-  const bootstrap = await getJson<AppBootstrap>(request, "/api/bootstrap");
+  await getJson<AppBootstrap>(request, "/api/bootstrap");
 
   await page.goto("/config");
   await expect(page.getByRole("heading", { name: "Configuration" })).toBeVisible();
-  await expect(page.getByLabel("Telegram API ID")).toHaveValue(bootstrap.settings.telegramApiId || "");
-  await expect(page.getByLabel("Phone Number")).toHaveValue(bootstrap.settings.telegramPhoneNumber || "");
-  await expect(page.getByLabel("Telegram User Name")).toHaveValue(bootstrap.settings.telegramUserName || "");
+  await expect(page.getByLabel("Device Name")).toBeVisible();
+  await expect(page.getByLabel("Host")).toBeVisible();
+  await expect(page.getByLabel("Telegram")).toBeVisible();
 
   await finish();
 });

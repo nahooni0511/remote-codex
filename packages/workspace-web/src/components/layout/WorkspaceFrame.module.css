@@ -1,0 +1,218 @@
+.shell {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 64px 260px minmax(0, 1fr);
+  gap: 0.5rem;
+  padding: 0.5rem;
+  overflow: hidden;
+  background: #050912;
+}
+
+.shellNoSidebar {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
+.rail,
+.sidebar {
+  min-height: 0;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background: rgba(12, 19, 33, 0.98);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+.rail {
+  position: sticky;
+  top: 0.5rem;
+  height: calc(100vh - 1rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 1.25rem;
+  padding: 1rem 0.35rem 0.95rem;
+}
+
+.brand {
+  display: grid;
+  justify-items: center;
+  gap: 0.95rem;
+}
+
+.brandMark {
+  width: 2.15rem;
+  height: 2.15rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.6rem;
+  color: #f97316;
+  background: rgba(14, 22, 36, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.brandText {
+  max-width: 2.25rem;
+  font-size: 0.58rem;
+  line-height: 1.18;
+  text-align: center;
+  color: #64748b;
+}
+
+.nav {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: auto;
+  margin-bottom: 1rem;
+}
+
+.navLink {
+  display: grid;
+  justify-items: center;
+  gap: 0.28rem;
+  padding: 0;
+  border-radius: 0;
+  color: #64748b;
+  text-decoration: none;
+}
+
+.navLinkActive {
+  color: #94a3b8;
+  background: transparent;
+}
+
+.navLink span {
+  font-size: 0.58rem;
+  line-height: 1.2;
+}
+
+.userCard {
+  display: grid;
+  justify-items: center;
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  gap: 0.18rem;
+  font-size: 0.46rem;
+  text-align: center;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+
+.userCard strong {
+  max-width: 2.8rem;
+  line-height: 1.1;
+  color: #f8fafc;
+  word-break: break-word;
+}
+
+.userLabel {
+  letter-spacing: 0.12em;
+  font-size: 0.4rem;
+  color: #475569;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0.5rem;
+  height: calc(100vh - 1rem);
+  overflow: hidden;
+}
+
+.content {
+  min-width: 0;
+  height: calc(100vh - 1rem);
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.backdrop {
+  display: none;
+}
+
+@media (max-width: 1120px) {
+  .shell {
+    height: auto;
+    grid-template-columns: 64px minmax(0, 1fr);
+    overflow: visible;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0.5rem auto 0.5rem 5rem;
+    width: min(260px, calc(100vw - 5.8rem));
+    z-index: 25;
+  }
+
+  .sidebarHidden {
+    display: none;
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 24;
+    border: 0;
+    background: rgba(3, 6, 10, 0.55);
+  }
+}
+
+@media (max-width: 720px) {
+  .shell {
+    grid-template-columns: 1fr;
+    padding: 0.5rem;
+    height: auto;
+    overflow: visible;
+  }
+
+  .rail {
+    position: static;
+    top: auto;
+    height: auto;
+    padding: 0.9rem;
+    border-radius: 12px;
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .brand {
+    grid-auto-flow: column;
+    gap: 0.6rem;
+    justify-content: flex-start;
+  }
+
+  .brandText {
+    max-width: none;
+    text-align: left;
+  }
+
+  .nav {
+    grid-auto-flow: column;
+    margin: 0;
+    gap: 1rem;
+  }
+
+  .userCard {
+    margin-left: auto;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+    justify-items: end;
+  }
+
+  .sidebar {
+    inset: auto 0.5rem 0.5rem 0.5rem;
+    width: auto;
+    max-height: calc(100vh - 7rem);
+  }
+
+  .content {
+    height: auto;
+    overflow: visible;
+  }
+}

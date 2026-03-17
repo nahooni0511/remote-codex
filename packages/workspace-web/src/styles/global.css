@@ -1,0 +1,107 @@
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(255, 136, 84, 0.18), transparent 26%),
+    radial-gradient(circle at top right, rgba(57, 208, 182, 0.14), transparent 28%),
+    linear-gradient(180deg, #071019 0%, var(--bg) 100%);
+  font-family: "Space Grotesk", "IBM Plex Sans KR", "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 0.88rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  outline: none;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: rgba(255, 136, 84, 0.42);
+  box-shadow: 0 0 0 3px rgba(255, 136, 84, 0.12);
+}
+
+textarea {
+  resize: vertical;
+}
+
+a {
+  color: inherit;
+}
+
+p code,
+li code,
+code {
+  padding: 0.12rem 0.35rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.message-code-shell {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.7rem 0;
+}
+
+.message-code-lang {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.72rem;
+}
+
+.message-code-block {
+  margin: 0;
+  padding: 1rem;
+  overflow: auto;
+  border-radius: var(--radius-md);
+  background: rgba(3, 6, 10, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+blockquote {
+  margin: 0;
+  padding-left: 1rem;
+  border-left: 3px solid rgba(255, 255, 255, 0.12);
+  color: var(--muted);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 1rem 0;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 160ms;
+  animation-timing-function: ease;
+}

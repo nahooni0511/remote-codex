@@ -5,6 +5,8 @@ dist
 data/*.db
 data/*.db-shm
 data/*.db-wal
+apps/data/
+apps/relay-mobile/.expo
 npm-debug.log*
 playwright-report
 test-results

@@ -1,0 +1,27 @@
+{
+  "name": "@remote-codex/relay-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@remote-codex/contracts": "file:../../packages/contracts",
+    "aws-jwt-verify": "^5.1.1",
+    "@types/ws": "^8.18.1",
+    "express": "^4.21.2",
+    "ioredis": "^5.8.2",
+    "mysql2": "^3.15.3",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.14",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
