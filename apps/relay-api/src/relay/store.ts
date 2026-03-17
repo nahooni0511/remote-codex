@@ -271,8 +271,9 @@ export async function createRelayStore(options: { port: number }) {
       return [];
     }
 
-    const presenceKeys = deviceRows.map((row: RelayDeviceRow) => `rc:presence:device:${row.device_id}`);
-    const presence = await redis.mget(presenceKeys);
+    const presence = await Promise.all(
+      deviceRows.map((row: RelayDeviceRow) => redis.get(`rc:presence:device:${row.device_id}`)),
+    );
     return deviceRows.map((row: RelayDeviceRow, index: number) => toSummary(row, Boolean(presence[index])));
   }
 

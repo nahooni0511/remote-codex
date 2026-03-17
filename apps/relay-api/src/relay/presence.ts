@@ -20,7 +20,7 @@ export async function scanPresenceValues(redis: Redis, pattern: string): Promise
     const [nextCursor, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", "100");
     cursor = nextCursor;
     if (keys.length) {
-      const rows = await redis.mget(keys);
+      const rows = await Promise.all(keys.map((key) => redis.get(key)));
       for (const row of rows) {
         if (row) {
           values.push(row);
