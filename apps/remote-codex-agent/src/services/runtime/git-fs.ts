@@ -103,6 +103,45 @@ export function listDirectoryNodes(targetPath: string): FsNode[] {
   }
 }
 
+export function normalizeNewDirectoryName(input: string): string {
+  const directoryName = assertNonEmptyString(input, "Directory name");
+
+  if (directoryName === "." || directoryName === "..") {
+    throw new HttpError(400, "Directory name is invalid.");
+  }
+
+  if (path.basename(directoryName) !== directoryName || directoryName.includes("/") || directoryName.includes("\\")) {
+    throw new HttpError(400, "Directory name cannot include path separators.");
+  }
+
+  return directoryName;
+}
+
+export function createDirectoryNode(parentPath: string, directoryName: string): FsNode {
+  const resolvedParentPath = normalizeExistingDirectoryPath(parentPath);
+  const normalizedName = normalizeNewDirectoryName(directoryName);
+  const nextPath = path.join(resolvedParentPath, normalizedName);
+
+  if (fs.existsSync(nextPath)) {
+    throw new HttpError(409, "A file or directory with the same name already exists.");
+  }
+
+  try {
+    fs.mkdirSync(nextPath);
+  } catch (error) {
+    throw new HttpError(
+      400,
+      error instanceof Error ? `Cannot create directory: ${error.message}` : "Cannot create directory.",
+    );
+  }
+
+  return {
+    name: normalizedName,
+    path: nextPath,
+    hasChildren: false,
+  };
+}
+
 export function isPathInsideRoot(rootPath: string, targetPath: string): boolean {
   const relative = path.relative(rootPath, targetPath);
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));

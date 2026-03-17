@@ -59,3 +59,39 @@ test("resolveComposerAttachments blocks files outside the project root", async (
     ]),
   );
 });
+
+test("createDirectoryNode creates a visible child directory", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "remote-codex-runtime-"));
+  const runtimeModule = await import(`../src/services/runtime.ts?runtime-directories=${Date.now()}`);
+
+  const created = runtimeModule.createDirectoryNode(tempDir, "new-folder");
+
+  assert.equal(created.name, "new-folder");
+  assert.equal(created.path, path.join(tempDir, "new-folder"));
+  assert.equal(fs.existsSync(created.path), true);
+  assert.equal(fs.statSync(created.path).isDirectory(), true);
+});
+
+test("createDirectoryNode rejects nested directory names", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "remote-codex-runtime-"));
+  const runtimeModule = await import(`../src/services/runtime.ts?runtime-directories-invalid=${Date.now()}`);
+
+  assert.throws(() => runtimeModule.createDirectoryNode(tempDir, "nested/path"));
+});
+
+test("resolveRuntimeRestartTarget keeps the current executable and script arguments", async () => {
+  const processControlModule = await import(`../src/services/runtime/process-control.ts?restart-target=${Date.now()}`);
+  const target = processControlModule.resolveRuntimeRestartTarget({
+    execPath: "/usr/local/bin/node",
+    argv: ["/usr/local/bin/node", "/usr/local/bin/remote-codex", "--port", "3000"],
+    cwd: "/tmp/runtime",
+    env: { TEST_ENV: "1" },
+  });
+
+  assert.deepEqual(target, {
+    command: "/usr/local/bin/node",
+    args: ["/usr/local/bin/remote-codex", "--port", "3000"],
+    cwd: "/tmp/runtime",
+    env: { TEST_ENV: "1" },
+  });
+});

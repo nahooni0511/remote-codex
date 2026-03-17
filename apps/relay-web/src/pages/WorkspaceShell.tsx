@@ -101,6 +101,52 @@ export function WorkspaceShell({ session }: { session: RelayAuthSession }) {
     };
   }, [connectToken]);
 
+  useEffect(() => {
+    if (!selectedDeviceId || !connectToken?.device.blockedReason) {
+      return;
+    }
+
+    let cancelled = false;
+    let retryTimer: number | null = null;
+
+    const refreshConnectToken = () => {
+      if (cancelled) {
+        return;
+      }
+
+      void fetchRelayJson<DeviceConnectTokenResponse>(`/api/devices/${encodeURIComponent(selectedDeviceId)}/connect-token`, {
+        method: "POST",
+      })
+        .then((result) => {
+          if (cancelled) {
+            return;
+          }
+
+          setError(null);
+          setConnectToken(result);
+          if (result.device.blockedReason) {
+            retryTimer = window.setTimeout(refreshConnectToken, 2500);
+          }
+        })
+        .catch(() => {
+          if (cancelled) {
+            return;
+          }
+
+          retryTimer = window.setTimeout(refreshConnectToken, 2500);
+        });
+    };
+
+    retryTimer = window.setTimeout(refreshConnectToken, 2500);
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) {
+        window.clearTimeout(retryTimer);
+      }
+    };
+  }, [connectToken?.device.blockedReason, selectedDeviceId]);
+
   if (loading) {
     return <CenteredStatus title="Connecting workspace" description="Initializing encrypted relay session." />;
   }

@@ -55,6 +55,7 @@ import {
   stopRelayBridgeService,
 } from "./relay-bridge";
 import {
+  createDirectoryNode,
   captureProjectGitSnapshot,
   ensureProjectPath,
   getProjectGitState,
@@ -123,6 +124,7 @@ import {
 } from "./runtime/shared";
 
 export {
+  createDirectoryNode,
   getProjectGitState,
   listDirectoryNodes,
   listProjectFileTree,

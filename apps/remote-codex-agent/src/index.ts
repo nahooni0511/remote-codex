@@ -2,6 +2,11 @@ import { createServer } from "node:http";
 
 import { createApp } from "./app";
 import {
+  registerRuntimeRestartHandler,
+  resolveRuntimeRestartTarget,
+  spawnRuntimeRestartTarget,
+} from "./services/runtime/process-control";
+import {
   PORT,
   attachRealtimeServer,
   prepareRuntime,
@@ -15,9 +20,9 @@ const wsServer = attachRealtimeServer(httpServer);
 
 let isShuttingDown = false;
 
-async function shutdown(signal: string): Promise<void> {
+async function closeRuntime(signal: string): Promise<boolean> {
   if (isShuttingDown) {
-    return;
+    return false;
   }
 
   isShuttingDown = true;
@@ -28,6 +33,14 @@ async function shutdown(signal: string): Promise<void> {
   }).catch(() => undefined);
   wsServer.close();
   await shutdownBackgroundServices();
+  return true;
+}
+
+async function shutdown(signal: string): Promise<void> {
+  const closed = await closeRuntime(signal);
+  if (!closed) {
+    return;
+  }
   process.exit(0);
 }
 
@@ -37,6 +50,26 @@ process.on("SIGINT", () => {
 
 process.on("SIGTERM", () => {
   void shutdown("SIGTERM");
+});
+
+registerRuntimeRestartHandler(async (reason) => {
+  const target = resolveRuntimeRestartTarget();
+  if (!target) {
+    throw new Error("Restart target is not available in the current runtime.");
+  }
+
+  const closed = await closeRuntime(reason);
+  if (!closed) {
+    return;
+  }
+
+  try {
+    spawnRuntimeRestartTarget(target);
+    process.exit(0);
+  } catch (error) {
+    console.error("Failed to spawn restarted runtime:", error);
+    process.exit(1);
+  }
 });
 
 void prepareRuntime()
