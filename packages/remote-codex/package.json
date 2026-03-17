@@ -1,6 +1,6 @@
 {
   "name": "@everyground/remote-codex",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Bundled local runtime for Remote Codex.",
   "license": "MIT",
   "type": "commonjs",
