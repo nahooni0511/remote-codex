@@ -12,14 +12,13 @@ export function LoginCallbackPage({ onSession }: { onSession: (session: RelayAut
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const code = searchParams.get("code");
-    const state = searchParams.get("state");
-    if (!code) {
-      setError("Authorization code was not returned by Cognito.");
+    const authError = searchParams.get("error_description") || searchParams.get("error");
+    if (authError) {
+      setError(authError);
       return;
     }
 
-    void completeHostedUiSignIn({ code, state })
+    void completeHostedUiSignIn()
       .then(() => fetchRelayJson<RelayAuthSession>("/api/session"))
       .then((session) => {
         onSession(session);
@@ -34,5 +33,5 @@ export function LoginCallbackPage({ onSession }: { onSession: (session: RelayAut
     return <CenteredStatus title="Sign-in failed" description={error} tone="error" />;
   }
 
-  return <CenteredStatus title="Completing sign-in" description="Exchanging your Cognito authorization code." />;
+  return <CenteredStatus title="Completing sign-in" description="Finalizing your Cognito session." />;
 }

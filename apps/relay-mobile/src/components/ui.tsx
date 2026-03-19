@@ -1,8 +1,14 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-export function Card({ children }: { children: ReactNode }) {
-  return <View style={styles.card}>{children}</View>;
+export function Card({
+  children,
+  tone = "default",
+}: {
+  children: ReactNode;
+  tone?: "default" | "muted";
+}) {
+  return <View style={[styles.card, tone === "muted" && styles.cardMuted]}>{children}</View>;
 }
 
 export function Label({ children }: { children: ReactNode }) {
@@ -10,7 +16,7 @@ export function Label({ children }: { children: ReactNode }) {
 }
 
 export function Field(props: React.ComponentProps<typeof TextInput>) {
-  return <TextInput placeholderTextColor="#94a3b8" style={styles.field} {...props} />;
+  return <TextInput placeholderTextColor="#8b7b69" style={styles.field} {...props} />;
 }
 
 export function Button({
@@ -22,16 +28,25 @@ export function Button({
   label: string;
   onPress: () => void;
   disabled?: boolean;
-  tone?: "primary" | "ghost";
+  tone?: "primary" | "secondary" | "ghost";
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
-      style={[styles.button, tone === "ghost" ? styles.buttonGhost : styles.buttonPrimary, disabled && styles.buttonDisabled]}
+      style={[
+        styles.button,
+        tone === "ghost" ? styles.buttonGhost : tone === "secondary" ? styles.buttonSecondary : styles.buttonPrimary,
+        disabled && styles.buttonDisabled,
+      ]}
     >
-      <Text style={[styles.buttonLabel, tone === "ghost" ? styles.buttonGhostLabel : styles.buttonPrimaryLabel]}>
+      <Text
+        style={[
+          styles.buttonLabel,
+          tone === "ghost" ? styles.buttonGhostLabel : tone === "secondary" ? styles.buttonSecondaryLabel : styles.buttonPrimaryLabel,
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -44,47 +59,53 @@ export function ErrorText({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    borderRadius: 22,
     padding: 18,
     gap: 12,
-    shadowColor: "#0f172a",
+    shadowColor: "#211b12",
     shadowOpacity: 0.08,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
     elevation: 4,
   },
+  cardMuted: {
+    backgroundColor: "rgba(15, 97, 93, 0.06)",
+  },
   label: {
-    color: "#334155",
+    color: "#655647",
     fontSize: 13,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
   field: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "rgba(15, 97, 93, 0.18)",
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: "#0f172a",
+    color: "#211b12",
     fontSize: 16,
   },
   button: {
     alignItems: "center",
-    borderRadius: 14,
+    borderRadius: 999,
     minHeight: 48,
     justifyContent: "center",
     paddingHorizontal: 16,
   },
   buttonPrimary: {
-    backgroundColor: "#ea580c",
+    backgroundColor: "#0f615d",
+  },
+  buttonSecondary: {
+    backgroundColor: "rgba(15, 97, 93, 0.12)",
   },
   buttonGhost: {
-    backgroundColor: "#fff7ed",
+    backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: "#fdba74",
+    borderColor: "rgba(15, 97, 93, 0.2)",
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -94,13 +115,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   buttonPrimaryLabel: {
-    color: "#fff7ed",
+    color: "#f8f5ee",
+  },
+  buttonSecondaryLabel: {
+    color: "#0f615d",
   },
   buttonGhostLabel: {
-    color: "#9a3412",
+    color: "#0f615d",
   },
   errorText: {
-    color: "#b91c1c",
+    color: "#ae402d",
     fontSize: 14,
     lineHeight: 20,
   },

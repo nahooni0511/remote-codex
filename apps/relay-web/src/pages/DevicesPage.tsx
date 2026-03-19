@@ -10,7 +10,7 @@ export function DevicesPage({
   onSignOut,
 }: {
   session: RelayAuthSession;
-  onSignOut: () => void;
+  onSignOut: () => Promise<void>;
 }) {
   const navigate = useNavigate();
   const [devices, setDevices] = useState<RelayDeviceSummary[]>([]);
@@ -66,7 +66,7 @@ export function DevicesPage({
           >
             {pairingPending ? "Creating..." : "Create Pairing Code"}
           </button>
-          <button type="button" className="relayButtonSecondary" onClick={onSignOut}>
+          <button type="button" className="relayButtonSecondary" onClick={() => void onSignOut()}>
             Sign Out
           </button>
         </div>

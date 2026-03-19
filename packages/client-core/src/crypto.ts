@@ -3,6 +3,26 @@ import type { EncryptedBridgeData, EncryptedBridgePayload } from "@remote-codex/
 
 import { base64ToBytes, bytesToBase64, decodeText, encodeText } from "./encoding";
 
+type RandomValuesProvider = {
+  getRandomValues?: (array: Uint8Array) => Uint8Array | void;
+};
+
+function ensureNaclPrng() {
+  const cryptoProvider = (globalThis as { crypto?: RandomValuesProvider }).crypto;
+  if (!cryptoProvider?.getRandomValues) {
+    return;
+  }
+
+  const QUOTA = 65536;
+  nacl.setPRNG((target, length) => {
+    for (let offset = 0; offset < length; offset += QUOTA) {
+      cryptoProvider.getRandomValues?.(target.subarray(offset, offset + Math.min(length - offset, QUOTA)));
+    }
+  });
+}
+
+ensureNaclPrng();
+
 export interface SessionKeyPair {
   publicKey: string;
   secretKey: string;

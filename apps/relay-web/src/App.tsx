@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { CenteredStatus } from "./components/CenteredStatus";
-import { clearStoredAuth, getIdToken, signOutHostedUi } from "./lib/auth";
+import { signOutHostedUi } from "./lib/auth";
 import { emptyRelaySession, fetchRelayJson } from "./lib/relay-api";
 import { DevicesPage } from "./pages/DevicesPage";
 import { LoginCallbackPage } from "./pages/LoginCallbackPage";
@@ -22,8 +22,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!getIdToken()) {
-      setSession(emptyRelaySession());
+    if (window.location.pathname === "/login/callback") {
       setLoading(false);
       return;
     }
@@ -31,7 +30,6 @@ export function App() {
     void fetchRelayJson<RelayAuthSession>("/api/session")
       .then((result) => setSession(result))
       .catch(() => {
-        clearStoredAuth();
         setSession(emptyRelaySession());
       })
       .finally(() => setLoading(false));

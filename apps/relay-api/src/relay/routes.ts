@@ -4,13 +4,16 @@ import type {
   PairingCodeClaimRequest,
   PairingCodeClaimResponse,
   PairingCodeCreateResponse,
+  RelayClientAuthConfig,
 } from "@remote-codex/contracts";
 
+import { loadRelayStoreConfig } from "./config";
 import type { RelayStore } from "./store";
 import { buildWsUrl, getRequestBaseUrl } from "./helpers";
 
 export function registerRelayRoutes(app: Express, options: { port: number; store: RelayStore }) {
   const { port, store } = options;
+  const config = loadRelayStoreConfig(port);
 
   app.get("/api/health", (_request, response) => {
     response.json({
@@ -22,6 +25,14 @@ export function registerRelayRoutes(app: Express, options: { port: number; store
 
   app.get("/api/session", async (request, response) => {
     response.json(store.serializeRelaySession(await store.getSessionFromRequest(request)));
+  });
+
+  app.get("/api/auth/config", (_request, response) => {
+    const payload: RelayClientAuthConfig = {
+      userPoolId: config.cognitoUserPoolId,
+      clientId: config.cognitoWebClientId,
+    };
+    response.json(payload);
   });
 
   app.get("/api/devices", async (request, response) => {

@@ -70,6 +70,11 @@ export interface RelayAuthSession {
   expiresAt: string | null;
 }
 
+export interface RelayClientAuthConfig {
+  userPoolId: string;
+  clientId: string;
+}
+
 export interface RelayDeviceSummary {
   deviceId: string;
   displayName: string;

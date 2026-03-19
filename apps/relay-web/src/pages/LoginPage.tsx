@@ -9,7 +9,7 @@ export function LoginPage({
   onSignOut,
 }: {
   session: RelayAuthSession;
-  onSignOut: () => void;
+  onSignOut: () => Promise<void>;
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export function LoginPage({
           >
             {pending ? "Redirecting..." : "Sign In with Cognito"}
           </button>
-          <button type="button" className="relayButtonSecondary" onClick={onSignOut}>
+          <button type="button" className="relayButtonSecondary" onClick={() => void onSignOut()}>
             Clear Session
           </button>
         </div>
