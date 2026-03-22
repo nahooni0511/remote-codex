@@ -10,11 +10,12 @@ import {
   getHostedUiDiscovery,
   getRedirectUri,
   persistStoredAuth,
+  signInWithPassword,
 } from "../lib/auth";
 import { fetchRelayJson, getApiBaseUrl } from "../lib/relay-api";
 import { styles } from "../styles";
 import { Screen } from "../components/Screen";
-import { Button, Card, ErrorText, Label } from "../components/ui";
+import { Button, Card, ErrorText, Field, Label } from "../components/ui";
 
 export function LoginScreen({
   onAuthenticated,
@@ -36,23 +37,70 @@ export function LoginScreen({
     },
     discovery,
   );
-  const [loading, setLoading] = useState<"signIn" | null>(null);
+  const [loading, setLoading] = useState<"hostedUi" | "password" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  async function finalizeAuthentication(storedAuth: StoredAuth) {
+    await persistStoredAuth(storedAuth);
+
+    const session = await fetchRelayJson<RelayAuthSession>("/api/session", {}, storedAuth.idToken);
+    if (!session.user) {
+      throw new Error("Authenticated session was not accepted by the relay API.");
+    }
+
+    onAuthenticated(storedAuth, session);
+  }
 
   return (
     <Screen title="Remote Codex Sign In" subtitle="Sign in with Cognito, then continue to your relay-connected devices.">
       <Card>
+        <Label>Email</Label>
+        <Field
+          autoCapitalize="none"
+          autoComplete="email"
+          autoCorrect={false}
+          keyboardType="email-address"
+          onChangeText={setEmail}
+          placeholder="nahooni0511@gmail.com"
+          textContentType="emailAddress"
+          value={email}
+        />
+        <Label>Password</Label>
+        <Field
+          autoCapitalize="none"
+          autoComplete="password"
+          autoCorrect={false}
+          onChangeText={setPassword}
+          placeholder="Password"
+          secureTextEntry
+          textContentType="password"
+          value={password}
+        />
+        <Button
+          label={loading === "password" ? "Signing In..." : "Sign In with Email"}
+          disabled={loading !== null || !email.trim() || !password}
+          onPress={() => {
+            setLoading("password");
+            setError(null);
+            void signInWithPassword(email.trim(), password)
+              .then(finalizeAuthentication)
+              .catch((caught: Error) => setError(caught.message))
+              .finally(() => setLoading(null));
+          }}
+        />
         <Label>Hosted UI Redirect</Label>
         <Text style={styles.redirectValue}>{redirectUri}</Text>
         <Button
-          label={loading === "signIn" ? "Redirecting..." : "Sign In with Cognito"}
+          label={loading === "hostedUi" ? "Redirecting..." : "Sign In with Cognito"}
           disabled={!request || loading !== null}
           onPress={() => {
             if (!request) {
               return;
             }
 
-            setLoading("signIn");
+            setLoading("hostedUi");
             setError(null);
             void promptAsync()
               .then(async (result) => {
@@ -84,15 +132,7 @@ export function LoginScreen({
                   },
                   discovery,
                 );
-                const storedAuth = createStoredAuth(tokenResponse);
-                await persistStoredAuth(storedAuth);
-
-                const session = await fetchRelayJson<RelayAuthSession>("/api/session", {}, storedAuth.idToken);
-                if (!session.user) {
-                  throw new Error("Authenticated session was not accepted by the relay API.");
-                }
-
-                onAuthenticated(storedAuth, session);
+                await finalizeAuthentication(createStoredAuth(tokenResponse));
               })
               .catch((caught: Error) => setError(caught.message))
               .finally(() => setLoading(null));

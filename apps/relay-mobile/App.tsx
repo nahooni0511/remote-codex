@@ -145,8 +145,8 @@ export default function App() {
       }
     }
 
-    return selectedDeviceId ? "Projects" : "Devices";
-  }, [selectedDeviceId]);
+    return "Devices";
+  }, []);
 
   return (
     <SafeAreaProvider>
@@ -177,14 +177,11 @@ export default function App() {
                     />
                   )}
                 </AppStack.Screen>
-                <AppStack.Screen
-                  initialParams={selectedDeviceId ? { deviceId: selectedDeviceId } : undefined}
-                  name="Projects"
-                >
+                <AppStack.Screen name="Projects">
                   {({ navigation, route }) => (
                     <WorkspaceProjectsScreen
                       authToken={storedAuth.idToken}
-                      fallbackDeviceId={selectedDeviceId}
+                      fallbackDeviceId={null}
                       navigation={navigation}
                       onExitDevice={handleReturnToDevices}
                       onSignOut={handleSignOut}
@@ -226,6 +223,7 @@ export default function App() {
                   {({ navigation, route }) => (
                     <WorkspaceChatScreen
                       authToken={storedAuth.idToken}
+                      authUserName={session.user?.email || ""}
                       navigation={navigation}
                       onSignOut={handleSignOut}
                       preview={previewWorkspaceByDeviceId[route.params.deviceId] || null}

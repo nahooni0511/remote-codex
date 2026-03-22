@@ -1,12 +1,31 @@
-export type WorkspaceProject = {
-  id: number;
-  name: string;
-  folderPath: string;
-  threads: Array<{ id: number; title: string }>;
+import type {
+  ComposerAttachmentRecord,
+  ComposerModelOption,
+  MessageRecord,
+  ProjectTreeRecord,
+  ThreadComposerSettings,
+  ThreadListItem,
+  ThreadLiveStreamSnapshot,
+} from "@remote-codex/contracts";
+
+export type WorkspaceProject = ProjectTreeRecord;
+export type WorkspaceThread = ThreadListItem;
+export type WorkspaceThreadMessage = MessageRecord;
+
+export type WorkspaceThreadSnapshot = {
+  thread: WorkspaceThread | null;
+  messages: WorkspaceThreadMessage[];
+  hasMoreBefore: boolean;
+  liveStream: ThreadLiveStreamSnapshot | null;
 };
 
-export type WorkspaceThreadMessage = {
-  id: number;
-  role: string;
-  content: string;
+export type WorkspaceAttachmentPreview = {
+  kind: string;
+  fileName: string | null;
+  contentType: string;
+  uri: string | null;
 };
+
+export type WorkspaceComposerSettings = ThreadComposerSettings;
+export type WorkspaceComposerAttachment = ComposerAttachmentRecord;
+export type WorkspaceModelOption = ComposerModelOption;

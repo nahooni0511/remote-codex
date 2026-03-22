@@ -4,12 +4,12 @@ import * as WebBrowser from "expo-web-browser";
 import type { TokenResponseConfig } from "expo-auth-session";
 import { TokenError } from "expo-auth-session";
 
+import { getExpoPublicEnv } from "./env";
+
 WebBrowser.maybeCompleteAuthSession();
 
 const STORAGE_KEY = "remote-codex.relay-auth";
 const SELECTED_DEVICE_KEY = "remote-codex.selected-device-id";
-const PROD_COGNITO_DOMAIN = "https://remote-codex-158300319210-apne2.auth.ap-northeast-2.amazoncognito.com";
-const PROD_COGNITO_CLIENT_ID = "4941454ecaeoaagaser2hsv18m";
 const APP_SCHEME = "remotecodexrelaymobile";
 
 export type StoredAuth = TokenResponseConfig & { idToken: string };
@@ -17,10 +17,7 @@ export type StoredAuth = TokenResponseConfig & { idToken: string };
 let refreshPromise: Promise<StoredAuth | null> | null = null;
 
 export function getCognitoDomain(): string {
-  const configured = (process.env.EXPO_PUBLIC_COGNITO_DOMAIN || "").trim();
-  if (!configured) {
-    return PROD_COGNITO_DOMAIN;
-  }
+  const configured = getExpoPublicEnv("EXPO_PUBLIC_COGNITO_DOMAIN");
 
   return configured.startsWith("http://") || configured.startsWith("https://")
     ? configured.replace(/\/$/, "")
@@ -28,7 +25,11 @@ export function getCognitoDomain(): string {
 }
 
 export function getCognitoClientId(): string {
-  return (process.env.EXPO_PUBLIC_COGNITO_CLIENT_ID || "").trim() || PROD_COGNITO_CLIENT_ID;
+  return getExpoPublicEnv("EXPO_PUBLIC_COGNITO_CLIENT_ID");
+}
+
+export function getCognitoRegion(): string {
+  return getExpoPublicEnv("EXPO_PUBLIC_COGNITO_REGION");
 }
 
 export function getRedirectUri(): string {
@@ -69,6 +70,59 @@ export function createStoredAuth(tokenResponse: AuthSession.TokenResponse): Stor
   }
 
   return config as StoredAuth;
+}
+
+export async function signInWithPassword(email: string, password: string): Promise<StoredAuth> {
+  const response = await fetch(`https://cognito-idp.${getCognitoRegion()}.amazonaws.com/`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-amz-json-1.1",
+      "x-amz-target": "AWSCognitoIdentityProviderService.InitiateAuth",
+    },
+    body: JSON.stringify({
+      AuthFlow: "USER_PASSWORD_AUTH",
+      ClientId: getCognitoClientId(),
+      AuthParameters: {
+        USERNAME: email,
+        PASSWORD: password,
+      },
+    }),
+  });
+
+  const payload = (await response.json()) as {
+    AuthenticationResult?: {
+      AccessToken: string;
+      IdToken: string;
+      RefreshToken?: string;
+      TokenType?: string;
+      ExpiresIn?: number;
+    };
+    ChallengeName?: string;
+    message?: string;
+    Message?: string;
+    __type?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(payload.message || payload.Message || payload.__type || "Password sign-in failed.");
+  }
+
+  if (!payload.AuthenticationResult?.AccessToken || !payload.AuthenticationResult.IdToken) {
+    if (payload.ChallengeName) {
+      throw new Error(`Unsupported Cognito challenge: ${payload.ChallengeName}`);
+    }
+
+    throw new Error("Cognito did not return an access token.");
+  }
+
+  return {
+    accessToken: payload.AuthenticationResult.AccessToken,
+    idToken: payload.AuthenticationResult.IdToken,
+    refreshToken: payload.AuthenticationResult.RefreshToken,
+    tokenType: "bearer",
+    expiresIn: payload.AuthenticationResult.ExpiresIn,
+    issuedAt: Math.floor(Date.now() / 1000),
+  };
 }
 
 export async function getStoredAuth(): Promise<StoredAuth | null> {

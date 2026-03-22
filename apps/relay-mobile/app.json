@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.remotecodex.globalmobile"
     },
     "android": {
-      "package": "com.remotecodex.globalmobile"
+      "package": "com.remotecodex.globalmobile",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "bundler": "metro"

@@ -1,16 +1,21 @@
 import { RelayBridgeClient } from "@remote-codex/client-core";
 import type {
+  AppBootstrap,
   AppUpdateApplyResult,
   AppUpdateStatus,
+  CodexPermissionMode,
   DeviceConnectTokenResponse,
   PairingCodeCreateResponse,
   RelayAuthSession,
   RelayDeviceSummary,
+  ThreadComposerSettingsResponse,
+  ThreadMessagesResponse,
+  ThreadMode,
+  UserInputAnswers,
 } from "@remote-codex/contracts";
 
+import { getExpoPublicEnv } from "./env";
 import { getStoredAuth, getValidIdToken } from "./auth";
-
-const PROD_API_BASE_URL = "https://relay.remote-codex.com";
 
 export class RelayApiError extends Error {
   status: number | null;
@@ -23,12 +28,7 @@ export class RelayApiError extends Error {
 }
 
 export function getApiBaseUrl(): string {
-  const configured = (process.env.EXPO_PUBLIC_RELAY_BASE_URL || "").trim().replace(/\/$/, "");
-  if (configured) {
-    return configured;
-  }
-
-  return PROD_API_BASE_URL;
+  return getExpoPublicEnv("EXPO_PUBLIC_RELAY_BASE_URL").replace(/\/$/, "");
 }
 
 function buildApiUrl(path: string): string {
@@ -129,15 +129,7 @@ export async function fetchWorkspaceBootstrap(client: RelayBridgeClient) {
     method: "GET",
     path: "/api/bootstrap",
   });
-  return JSON.parse(response.body || "null") as {
-    projects: Array<{
-      id: number;
-      name: string;
-      folderPath: string;
-      threads: Array<{ id: number; title: string }>;
-    }>;
-    device: { displayName: string };
-  };
+  return JSON.parse(response.body || "null") as AppBootstrap;
 }
 
 export async function fetchThreadMessages(client: RelayBridgeClient, threadId: number) {
@@ -145,7 +137,81 @@ export async function fetchThreadMessages(client: RelayBridgeClient, threadId: n
     method: "GET",
     path: `/api/threads/${threadId}/messages`,
   });
-  return JSON.parse(response.body || "null") as {
-    messages: Array<{ id: number; role: string; content: string }>;
-  };
+  return JSON.parse(response.body || "null") as ThreadMessagesResponse;
+}
+
+export async function fetchMessageAttachment(client: RelayBridgeClient, messageId: number) {
+  return client.request({
+    method: "GET",
+    path: `/api/messages/${messageId}/attachment`,
+  });
+}
+
+export async function postThreadMessage(
+  client: RelayBridgeClient,
+  threadId: number,
+  payload: {
+    content: string;
+  },
+) {
+  return client.request({
+    method: "POST",
+    path: `/api/threads/${threadId}/messages`,
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateThreadComposerSettings(
+  client: RelayBridgeClient,
+  threadId: number,
+  payload: {
+    defaultMode?: ThreadMode;
+    modelOverride?: string | null;
+    reasoningEffortOverride?: string | null;
+    permissionMode?: CodexPermissionMode;
+  },
+) {
+  const response = await client.request({
+    method: "PATCH",
+    path: `/api/threads/${threadId}/composer-settings`,
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return JSON.parse(response.body || "null") as ThreadComposerSettingsResponse;
+}
+
+export async function respondToThreadUserInputRequest(
+  client: RelayBridgeClient,
+  threadId: number,
+  requestId: string,
+  answers: UserInputAnswers,
+) {
+  return client.request({
+    method: "POST",
+    path: `/api/threads/${threadId}/user-input-requests/${encodeURIComponent(requestId)}/respond`,
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ answers }),
+  });
+}
+
+export async function undoThreadTurn(client: RelayBridgeClient, threadId: number, turnRunId: number) {
+  return client.request({
+    method: "POST",
+    path: `/api/threads/${threadId}/turns/${turnRunId}/undo`,
+  });
+}
+
+export async function interruptThreadTurn(client: RelayBridgeClient, threadId: number) {
+  return client.request({
+    method: "POST",
+    path: `/api/threads/${threadId}/interrupt`,
+  });
 }

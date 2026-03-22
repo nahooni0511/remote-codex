@@ -1,3 +1,4 @@
+import "react-native-gesture-handler";
 import * as ExpoCrypto from "expo-crypto";
 import { registerRootComponent } from "expo";
 
