@@ -21,9 +21,17 @@ export const previewInitialProjectId = null;
 export const previewInitialThreadId = null;
 
 export const previewStoredAuth: StoredAuth = {
-  idToken: "preview-id-token",
+  version: 2,
+  serverUrl: "https://relay.remote-codex.com",
+  methodId: "oidc",
   accessToken: "preview-access-token",
-  tokenType: "bearer",
+  refreshToken: "preview-refresh-token",
+  expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+  refreshExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  user: {
+    id: "preview-user",
+    email: "nahooni0511@gmail.com",
+  },
 };
 
 export const previewSession: RelayAuthSession = {

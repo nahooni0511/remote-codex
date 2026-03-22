@@ -1,6 +1,6 @@
 import type { RelayAuthSession } from "@remote-codex/contracts";
 
-import { getValidIdToken } from "./auth";
+import { getValidAccessToken } from "./auth";
 
 const PROD_HOSTNAME = "remote-codex.com";
 const PROD_API_BASE_URL = "https://relay.remote-codex.com";
@@ -63,11 +63,11 @@ export async function fetchRelayJson<T>(path: string, options: RequestInit = {})
     }
   };
 
-  let token = await getValidIdToken();
+  let token = await getValidAccessToken();
   let response = await send(token);
 
   if (response.status === 401 && token) {
-    token = await getValidIdToken({ forceRefresh: true });
+    token = await getValidAccessToken({ forceRefresh: true });
     if (token) {
       response = await send(token);
     }

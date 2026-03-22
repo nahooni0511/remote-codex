@@ -8,9 +8,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { CenteredStatus } from "./src/components/CenteredStatus";
 import type { StoredAuth } from "./src/lib/auth";
-import { clearStoredAuth, getSelectedDeviceId, getValidStoredAuth, setSelectedDeviceId } from "./src/lib/auth";
+import {
+  clearLegacyAuthStorage,
+  clearStoredAuth,
+  getCurrentServerUrl,
+  getSelectedDeviceId,
+  getValidStoredAuth,
+  setSelectedDeviceId,
+} from "./src/lib/auth";
 import { clearAllWorkspaceSessions } from "./src/lib/workspace-session";
-import { emptyRelaySession, fetchRelayJson, RelayApiError } from "./src/lib/relay-api";
+import { emptyRelaySession, fetchRelayJson, logoutRelaySession, RelayApiError } from "./src/lib/relay-api";
 import {
   isPreviewMode,
   previewDevices,
@@ -34,6 +41,7 @@ export default function App() {
   const [session, setSession] = useState<RelayAuthSession>(emptyRelaySession());
   const [storedAuth, setStoredAuthState] = useState<StoredAuth | null>(null);
   const [selectedDeviceId, setSelectedDeviceIdState] = useState<string | null>(null);
+  const [serverUrl, setServerUrlState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -43,33 +51,47 @@ export default function App() {
       setSession(previewSession);
       setStoredAuthState(previewStoredAuth);
       setSelectedDeviceIdState(previewInitialDeviceId);
+      setServerUrlState(previewStoredAuth.serverUrl);
       setLoading(false);
       return () => {
         cancelled = true;
       };
     }
 
-    void Promise.all([getValidStoredAuth(), getSelectedDeviceId()])
-      .then(async ([auth, deviceId]) => {
+    void clearLegacyAuthStorage()
+      .then(() => getCurrentServerUrl())
+      .then(async (resolvedServerUrl) => {
+        if (cancelled) {
+          return;
+        }
+
+        setServerUrlState(resolvedServerUrl);
+        const [auth, deviceId] = await Promise.all([
+          getValidStoredAuth(resolvedServerUrl),
+          getSelectedDeviceId(resolvedServerUrl),
+        ]);
         if (cancelled) {
           return;
         }
 
         setSelectedDeviceIdState(deviceId);
-        if (!auth?.idToken) {
+        if (!auth?.accessToken) {
           setStoredAuthState(null);
           setSession(emptyRelaySession());
           return;
         }
 
         try {
-          const nextSession = await fetchRelayJson<RelayAuthSession>("/api/session", {}, auth.idToken);
+          const nextSession = await fetchRelayJson<RelayAuthSession>("/api/session", {}, {
+            serverUrl: resolvedServerUrl,
+            accessToken: auth.accessToken,
+          });
           if (cancelled) {
             return;
           }
 
           if (!nextSession.user) {
-            await clearStoredAuth();
+            await clearStoredAuth(resolvedServerUrl);
             setStoredAuthState(null);
             setSession(emptyRelaySession());
             return;
@@ -79,7 +101,7 @@ export default function App() {
           setSession(nextSession);
         } catch (caught) {
           if (caught instanceof RelayApiError && caught.status === 401) {
-            await clearStoredAuth();
+            await clearStoredAuth(resolvedServerUrl);
           }
           if (cancelled) {
             return;
@@ -101,17 +123,18 @@ export default function App() {
   }, []);
 
   async function handleAuthenticated(nextAuth: StoredAuth, nextSession: RelayAuthSession) {
+    setServerUrlState(nextAuth.serverUrl);
     setStoredAuthState(nextAuth);
     setSession(nextSession);
   }
 
   async function handleOpenDevice(deviceId: string) {
-    await setSelectedDeviceId(deviceId);
+    await setSelectedDeviceId(deviceId, storedAuth?.serverUrl || serverUrl || undefined);
     setSelectedDeviceIdState(deviceId);
   }
 
   async function handleReturnToDevices() {
-    await setSelectedDeviceId(null);
+    await setSelectedDeviceId(null, storedAuth?.serverUrl || serverUrl || undefined);
     setSelectedDeviceIdState(null);
   }
 
@@ -123,13 +146,21 @@ export default function App() {
       return;
     }
 
-    await Promise.all([clearStoredAuth(), setSelectedDeviceId(null)]);
+    const nextServerUrl = storedAuth?.serverUrl || serverUrl;
+    if (storedAuth?.refreshToken && nextServerUrl) {
+      await logoutRelaySession(nextServerUrl, storedAuth.refreshToken);
+    }
+
+    if (nextServerUrl) {
+      await Promise.all([clearStoredAuth(nextServerUrl), setSelectedDeviceId(null, nextServerUrl)]);
+    }
+
     setStoredAuthState(null);
     setSelectedDeviceIdState(null);
     setSession(emptyRelaySession());
   }
 
-  const authenticated = Boolean(session.user && storedAuth?.idToken);
+  const authenticated = Boolean(session.user && storedAuth?.accessToken);
   const initialAppRouteName = useMemo<keyof AppStackParamList>(() => {
     if (isPreviewMode) {
       if (previewInitialThreadId && previewInitialProjectId && previewInitialDeviceId) {
@@ -156,10 +187,17 @@ export default function App() {
           <CenteredStatus title="Loading relay session" description="Restoring your stored relay authentication." loading />
         ) : (
           <NavigationContainer key={authenticated ? "app" : "auth"}>
-            {!authenticated || !storedAuth?.idToken ? (
+            {!authenticated || !storedAuth?.accessToken ? (
               <AuthStack.Navigator screenOptions={{ headerShown: false }}>
                 <AuthStack.Screen name="Login">
-                  {() => <LoginScreen onAuthenticated={handleAuthenticated} onClearSession={() => void handleSignOut()} />}
+                  {() => (
+                    <LoginScreen
+                      currentServerUrl={serverUrl}
+                      onAuthenticated={handleAuthenticated}
+                      onClearSession={() => void handleSignOut()}
+                      onServerUrlChange={setServerUrlState}
+                    />
+                  )}
                 </AuthStack.Screen>
               </AuthStack.Navigator>
             ) : (
@@ -167,7 +205,7 @@ export default function App() {
                 <AppStack.Screen name="Devices">
                   {({ navigation }) => (
                     <DevicesScreen
-                      authToken={storedAuth.idToken}
+                      authToken={storedAuth.accessToken}
                       onOpenDevice={(deviceId) => {
                         void handleOpenDevice(deviceId).then(() => navigation.navigate("Projects", { deviceId }));
                       }}
@@ -180,8 +218,8 @@ export default function App() {
                 <AppStack.Screen name="Projects">
                   {({ navigation, route }) => (
                     <WorkspaceProjectsScreen
-                      authToken={storedAuth.idToken}
-                      fallbackDeviceId={null}
+                      authToken={storedAuth.accessToken}
+                      fallbackDeviceId={selectedDeviceId}
                       navigation={navigation}
                       onExitDevice={handleReturnToDevices}
                       onSignOut={handleSignOut}
@@ -200,7 +238,7 @@ export default function App() {
                 >
                   {({ navigation, route }) => (
                     <WorkspaceThreadsScreen
-                      authToken={storedAuth.idToken}
+                      authToken={storedAuth.accessToken}
                       navigation={navigation}
                       onSignOut={handleSignOut}
                       preview={previewWorkspaceByDeviceId[route.params.deviceId] || null}
@@ -222,7 +260,7 @@ export default function App() {
                 >
                   {({ navigation, route }) => (
                     <WorkspaceChatScreen
-                      authToken={storedAuth.idToken}
+                      authToken={storedAuth.accessToken}
                       authUserName={session.user?.email || ""}
                       navigation={navigation}
                       onSignOut={handleSignOut}

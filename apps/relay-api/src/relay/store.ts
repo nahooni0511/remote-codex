@@ -1,21 +1,25 @@
 import { randomUUID } from "node:crypto";
 
-import { CognitoJwtVerifier } from "aws-jwt-verify";
-import type { Request, Response } from "express";
-import Redis from "ioredis";
-import mysql from "mysql2/promise";
-import { WebSocket } from "ws";
 import type {
-  AppUpdateApplyResult,
-  AppUpdateStatus,
-  BridgeMessage,
   PairingCodeClaimRequest,
   PairingCodeClaimResponse,
   PairingCodeCreateResponse,
   ProtocolMismatchReason,
+  RelayAuthExchangeResponse,
   RelayAuthSession,
+  RelayClientAuthConfig,
   RelayDeviceSummary,
+  RelayLocalSetupStatusResponse,
 } from "@remote-codex/contracts";
+import type { Request, Response } from "express";
+import Redis from "ioredis";
+import { createRemoteJWKSet, jwtVerify, SignJWT } from "jose";
+import mysql from "mysql2/promise";
+import type { RowDataPacket } from "mysql2/promise";
+import { WebSocket } from "ws";
+import type { JWTVerifyResult, JWTPayload } from "jose";
+import type { AppUpdateApplyResult, AppUpdateStatus, BridgeMessage } from "@remote-codex/contracts";
+
 import {
   CLIENT_CHANNEL,
   CONNECT_TOKEN_TTL_MS,
@@ -28,13 +32,17 @@ import {
 } from "./config";
 import {
   buildWsUrl,
+  createPasswordHash,
   fromSqlDateTime,
+  generateOpaqueToken,
   getRequestBaseUrl,
   hashSecret,
+  hashToken,
   parseBearerToken,
   toRelaySession,
   toSqlDateTime,
   toSummary,
+  verifyPasswordHash,
 } from "./helpers";
 import { parsePresencePayload, scanPresenceValues } from "./presence";
 import { ensureRelaySchema } from "./schema";
@@ -48,13 +56,42 @@ import type {
   RelayConnectTokenRow,
   RelayDeviceRow,
   RelayPairingCodeRow,
+  RelayRefreshTokenRow,
+  RelayStoreLocalAdminMethodConfig,
+  RelayStoreOidcMethodConfig,
   RelayUserRow,
   RpcPubsubMessage,
   SessionRecord,
 } from "./types";
 
+const textEncoder = new TextEncoder();
+const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+function getRelayAccessTokenIssuer(serverName: string): string {
+  return `relay:${serverName}`;
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function getProviderKey(prefix: "oidc" | "local-admin", methodId: string): string {
+  return `${prefix}:${methodId}`;
+}
+
+function getCachedJwks(jwksUri: string) {
+  const cached = jwksCache.get(jwksUri);
+  if (cached) {
+    return cached;
+  }
+
+  const next = createRemoteJWKSet(new URL(jwksUri));
+  jwksCache.set(jwksUri, next);
+  return next;
+}
+
 export async function createRelayStore(options: { port: number }) {
-  const config = loadRelayStoreConfig(options.port);
+  const config = await loadRelayStoreConfig(options.port);
   const pool = mysql.createPool({
     host: config.databaseHost,
     port: config.databasePort,
@@ -66,96 +103,303 @@ export async function createRelayStore(options: { port: number }) {
     enableKeepAlive: true,
   });
 
-  await ensureRelaySchema(pool);
+  await ensureRelaySchema(pool, { defaultOidcIssuer: config.defaultOidcIssuer });
 
   const redisOptions = config.valkeyUrl.startsWith("rediss://")
     ? { maxRetriesPerRequest: null, tls: {} }
     : { maxRetriesPerRequest: null };
   const redis = new Redis(config.valkeyUrl, redisOptions);
   const subscriber = new Redis(config.valkeyUrl, redisOptions);
-  const verifier = CognitoJwtVerifier.create({
-    userPoolId: config.cognitoUserPoolId,
-    tokenUse: "id",
-    clientId: config.cognitoWebClientId,
-  });
+  const accessTokenSecret = textEncoder.encode(config.authSessionSecret);
 
   const localDevices = new Map<string, LocalDeviceConnection>();
   const localClients = new Map<string, LocalClientConnection>();
   const pendingRpc = new Map<string, PendingRpc>();
 
-  async function upsertRelayUser(session: SessionRecord): Promise<void> {
-    const timestamp = toSqlDateTime();
-    await pool.execute(
-      `
-        INSERT INTO relay_users (cognito_sub, email, created_at, updated_at)
-        VALUES (?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          email = VALUES(email),
-          updated_at = VALUES(updated_at)
-      `,
-      [session.user.id, session.user.email, timestamp, timestamp],
-    );
-  }
-
-  async function findRelayUser(userId: string): Promise<RelayUserRow | null> {
+  async function findRelayUserById(userId: string): Promise<RelayUserRow | null> {
     const [rows] = await pool.execute<RelayUserRow[]>(
-      `SELECT cognito_sub, email FROM relay_users WHERE cognito_sub = ? LIMIT 1`,
+      `
+        SELECT id, auth_provider, auth_subject, auth_issuer, email, password_hash, cognito_sub
+        FROM relay_users
+        WHERE id = ?
+        LIMIT 1
+      `,
       [userId],
     );
     return rows[0] || null;
   }
 
-  async function verifySessionToken(token: string | null): Promise<SessionRecord | null> {
+  async function findRelayUserByIdentity(authProvider: string, authSubject: string): Promise<RelayUserRow | null> {
+    const [rows] = await pool.execute<RelayUserRow[]>(
+      `
+        SELECT id, auth_provider, auth_subject, auth_issuer, email, password_hash, cognito_sub
+        FROM relay_users
+        WHERE auth_provider = ? AND auth_subject = ?
+        LIMIT 1
+      `,
+      [authProvider, authSubject],
+    );
+    return rows[0] || null;
+  }
+
+  async function findRelayUserByCognitoSub(cognitoSub: string): Promise<RelayUserRow | null> {
+    const [rows] = await pool.execute<RelayUserRow[]>(
+      `
+        SELECT id, auth_provider, auth_subject, auth_issuer, email, password_hash, cognito_sub
+        FROM relay_users
+        WHERE cognito_sub = ?
+        LIMIT 1
+      `,
+      [cognitoSub],
+    );
+    return rows[0] || null;
+  }
+
+  async function findLocalAdminByEmail(method: RelayStoreLocalAdminMethodConfig, email: string): Promise<RelayUserRow | null> {
+    return findRelayUserByIdentity(getProviderKey("local-admin", method.id), normalizeEmail(email));
+  }
+
+  async function createRelayUser(input: {
+    authProvider: string;
+    authSubject: string;
+    authIssuer?: string | null;
+    email: string;
+    passwordHash?: string | null;
+    cognitoSub?: string | null;
+  }): Promise<RelayUserRow> {
+    const rowId = randomUUID().replace(/-/g, "");
+    const timestamp = toSqlDateTime();
+    await pool.execute(
+      `
+        INSERT INTO relay_users (
+          id,
+          auth_provider,
+          auth_subject,
+          auth_issuer,
+          email,
+          password_hash,
+          cognito_sub,
+          created_at,
+          updated_at,
+          last_login_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        rowId,
+        input.authProvider,
+        input.authSubject,
+        input.authIssuer || null,
+        normalizeEmail(input.email),
+        input.passwordHash || null,
+        input.cognitoSub || null,
+        timestamp,
+        timestamp,
+        timestamp,
+      ],
+    );
+
+    const created = await findRelayUserById(rowId);
+    if (!created) {
+      throw new Error("Failed to create relay user.");
+    }
+
+    return created;
+  }
+
+  async function updateRelayUser(rowId: string, input: {
+    authProvider?: string;
+    authSubject?: string;
+    authIssuer?: string | null;
+    email?: string;
+    passwordHash?: string | null;
+    cognitoSub?: string | null;
+  }): Promise<RelayUserRow> {
+    const existing = await findRelayUserById(rowId);
+    if (!existing) {
+      throw new Error("Relay user not found.");
+    }
+
+    const timestamp = toSqlDateTime();
+    await pool.execute(
+      `
+        UPDATE relay_users
+        SET
+          auth_provider = ?,
+          auth_subject = ?,
+          auth_issuer = ?,
+          email = ?,
+          password_hash = ?,
+          cognito_sub = ?,
+          updated_at = ?,
+          last_login_at = ?
+        WHERE id = ?
+      `,
+      [
+        input.authProvider || existing.auth_provider,
+        input.authSubject || existing.auth_subject,
+        input.authIssuer === undefined ? existing.auth_issuer : input.authIssuer,
+        normalizeEmail(input.email || existing.email),
+        input.passwordHash === undefined ? existing.password_hash : input.passwordHash,
+        input.cognitoSub === undefined ? existing.cognito_sub || null : input.cognitoSub,
+        timestamp,
+        timestamp,
+        rowId,
+      ],
+    );
+
+    const updated = await findRelayUserById(rowId);
+    if (!updated) {
+      throw new Error("Relay user disappeared during update.");
+    }
+
+    return updated;
+  }
+
+  async function findRelayUserForOidc(method: RelayStoreOidcMethodConfig, claims: JWTVerifyResult<JWTPayload>["payload"]): Promise<RelayUserRow> {
+    const email = typeof claims.email === "string" && claims.email.trim() ? normalizeEmail(claims.email) : null;
+    const subject = typeof claims.sub === "string" && claims.sub.trim() ? claims.sub.trim() : null;
+    if (!email || !subject) {
+      throw new Error("OIDC provider did not return the required email/sub claims.");
+    }
+
+    const authProvider = getProviderKey("oidc", method.id);
+    const identityMatch = await findRelayUserByIdentity(authProvider, subject);
+    if (identityMatch) {
+      return updateRelayUser(identityMatch.id, {
+        authIssuer: method.issuer,
+        email,
+        cognitoSub: method.issuer === config.defaultOidcIssuer ? subject : identityMatch.cognito_sub || null,
+      });
+    }
+
+    if (method.issuer === config.defaultOidcIssuer) {
+      const legacyMatch = await findRelayUserByCognitoSub(subject);
+      if (legacyMatch) {
+        return updateRelayUser(legacyMatch.id, {
+          authProvider,
+          authSubject: subject,
+          authIssuer: method.issuer,
+          email,
+          cognitoSub: subject,
+        });
+      }
+    }
+
+    return createRelayUser({
+      authProvider,
+      authSubject: subject,
+      authIssuer: method.issuer,
+      email,
+      cognitoSub: method.issuer === config.defaultOidcIssuer ? subject : null,
+    });
+  }
+
+  async function hasAnyLocalAdmin(): Promise<boolean> {
+    const [rows] = await pool.query<Array<RowDataPacket & { count: number }>>(
+      `
+        SELECT COUNT(*) AS count
+        FROM relay_users
+        WHERE auth_provider LIKE 'local-admin:%'
+      `,
+    );
+    return Number(rows[0]?.count || 0) > 0;
+  }
+
+  async function markUserLogin(rowId: string): Promise<void> {
+    await pool.execute(`UPDATE relay_users SET last_login_at = ?, updated_at = ? WHERE id = ?`, [toSqlDateTime(), toSqlDateTime(), rowId]);
+  }
+
+  async function issueRelayTokens(user: RelayUserRow): Promise<RelayAuthExchangeResponse> {
+    const issuedAt = Math.floor(Date.now() / 1000);
+    const expiresAt = new Date((issuedAt + config.authAccessTokenTtlSeconds) * 1000).toISOString();
+    const refreshExpiresAt = new Date((issuedAt + config.authRefreshTokenTtlSeconds) * 1000).toISOString();
+
+    const accessToken = await new SignJWT({ email: user.email })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(user.id)
+      .setIssuer(getRelayAccessTokenIssuer(config.serverName))
+      .setAudience("relay-api")
+      .setIssuedAt(issuedAt)
+      .setExpirationTime(issuedAt + config.authAccessTokenTtlSeconds)
+      .sign(accessTokenSecret);
+
+    const refreshToken = generateOpaqueToken(48);
+    await pool.execute(
+      `
+        INSERT INTO relay_refresh_tokens (token_hash, user_id, expires_at, revoked_at, replaced_by_token_hash, created_at)
+        VALUES (?, ?, ?, NULL, NULL, ?)
+      `,
+      [hashToken(refreshToken), user.id, toSqlDateTime(refreshExpiresAt), toSqlDateTime()],
+    );
+
+    const session = toRelaySession(user, expiresAt);
+    if (!session) {
+      throw new Error("Unable to create relay session.");
+    }
+
+    await markUserLogin(user.id);
+
+    return {
+      session: serializeRelaySession(session),
+      tokens: {
+        accessToken,
+        refreshToken,
+        expiresAt,
+        refreshExpiresAt,
+      },
+    };
+  }
+
+  async function revokeRefreshToken(tokenHash: string, replacedByTokenHash?: string | null): Promise<void> {
+    await pool.execute(
+      `
+        UPDATE relay_refresh_tokens
+        SET revoked_at = COALESCE(revoked_at, ?),
+            replaced_by_token_hash = COALESCE(replaced_by_token_hash, ?)
+        WHERE token_hash = ?
+      `,
+      [toSqlDateTime(), replacedByTokenHash || null, tokenHash],
+    );
+  }
+
+  async function verifyAccessToken(token: string | null): Promise<SessionRecord | null> {
     if (!token) {
       return null;
     }
 
-    if (
-      config.testAuthToken &&
-      token === config.testAuthToken &&
-      config.testAuthEmail &&
-      config.testAuthUserId
-    ) {
-      const session = toRelaySession(
-        {
-          cognito_sub: config.testAuthUserId,
-          email: config.testAuthEmail,
-        },
-        null,
-      );
-      if (!session) {
-        return null;
-      }
-
-      await upsertRelayUser(session);
-      return session;
-    }
-
     try {
-      const claims = await verifier.verify(token);
-      const email = typeof claims.email === "string" && claims.email.trim() ? claims.email.trim() : null;
-      const userId = typeof claims.sub === "string" && claims.sub.trim() ? claims.sub.trim() : null;
-      if (!email || !userId) {
+      const { payload } = await jwtVerify(token, accessTokenSecret, {
+        issuer: getRelayAccessTokenIssuer(config.serverName),
+        audience: "relay-api",
+      });
+      const userId = typeof payload.sub === "string" && payload.sub.trim() ? payload.sub.trim() : null;
+      if (!userId) {
         return null;
       }
 
-      const expiresAt =
-        typeof claims.exp === "number" ? new Date(claims.exp * 1000).toISOString() : null;
-      const userRow = { cognito_sub: userId, email };
-      const session = toRelaySession(userRow, expiresAt);
-      if (!session) {
+      const user = await findRelayUserById(userId);
+      if (!user) {
         return null;
       }
 
-      await upsertRelayUser(session);
-      return session;
+      const expiresAt = typeof payload.exp === "number" ? new Date(payload.exp * 1000).toISOString() : null;
+      return toRelaySession(user, expiresAt);
     } catch {
       return null;
     }
   }
 
+  async function verifyOidcIdToken(method: RelayStoreOidcMethodConfig, idToken: string): Promise<JWTVerifyResult<JWTPayload>["payload"]> {
+    const { payload } = await jwtVerify(idToken, getCachedJwks(method.jwksUri), {
+      issuer: method.issuer,
+      audience: method.clientId,
+    });
+    return payload;
+  }
+
   async function getSessionFromRequest(request: Request): Promise<SessionRecord | null> {
-    return verifySessionToken(parseBearerToken(request));
+    return verifyAccessToken(parseBearerToken(request));
   }
 
   async function requireSession(request: Request, response: Response): Promise<SessionRecord | null> {
@@ -202,6 +446,7 @@ export async function createRelayStore(options: { port: number }) {
   async function writeAuditLog(
     action: string,
     input: {
+      actorUserId?: string | null;
       actorCognitoSub?: string | null;
       deviceId?: string | null;
       payloadJson?: string | null;
@@ -210,10 +455,17 @@ export async function createRelayStore(options: { port: number }) {
     const timestamp = toSqlDateTime();
     await pool.execute(
       `
-        INSERT INTO relay_audit_logs (actor_cognito_sub, device_id, action, payload_json, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO relay_audit_logs (actor_user_id, actor_cognito_sub, device_id, action, payload_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
       `,
-      [input.actorCognitoSub || null, input.deviceId || null, action, input.payloadJson || null, timestamp],
+      [
+        input.actorUserId || null,
+        input.actorCognitoSub || null,
+        input.deviceId || null,
+        action,
+        input.payloadJson || null,
+        timestamp,
+      ],
     );
   }
 
@@ -222,6 +474,7 @@ export async function createRelayStore(options: { port: number }) {
       `
         SELECT
           device_id,
+          owner_user_id,
           owner_cognito_sub,
           owner_email,
           display_name,
@@ -257,6 +510,7 @@ export async function createRelayStore(options: { port: number }) {
       `
         SELECT
           device_id,
+          owner_user_id,
           owner_cognito_sub,
           owner_email,
           display_name,
@@ -269,7 +523,7 @@ export async function createRelayStore(options: { port: number }) {
           created_at,
           updated_at
         FROM relay_devices
-        WHERE owner_cognito_sub = ?
+        WHERE owner_user_id = ?
         ORDER BY display_name ASC
       `,
       [session.user.id],
@@ -288,7 +542,7 @@ export async function createRelayStore(options: { port: number }) {
 
   async function assertDeviceAccess(session: SessionRecord, deviceId: string): Promise<RelayDeviceSummary | null> {
     const row = await getDeviceRow(deviceId);
-    if (!row || row.owner_cognito_sub !== session.user.id) {
+    if (!row || row.owner_user_id !== session.user.id) {
       return null;
     }
 
@@ -307,17 +561,10 @@ export async function createRelayStore(options: { port: number }) {
 
     await pool.execute(
       `
-        INSERT INTO relay_connect_tokens (token, owner_cognito_sub, owner_email, device_id, expires_at, used_at, created_at)
+        INSERT INTO relay_connect_tokens (token, owner_user_id, owner_email, device_id, expires_at, used_at, created_at)
         VALUES (?, ?, ?, ?, ?, NULL, ?)
       `,
-      [
-        record.token,
-        record.userId,
-        record.userEmail,
-        record.deviceId,
-        toSqlDateTime(record.expiresAt),
-        toSqlDateTime(),
-      ],
+      [record.token, record.userId, record.userEmail, record.deviceId, toSqlDateTime(record.expiresAt), toSqlDateTime()],
     );
 
     return record;
@@ -326,7 +573,7 @@ export async function createRelayStore(options: { port: number }) {
   async function getConnectToken(token: string): Promise<ConnectTokenRecord | null> {
     const [rows] = await pool.execute<RelayConnectTokenRow[]>(
       `
-        SELECT token, owner_cognito_sub, owner_email, device_id, expires_at, used_at, created_at
+        SELECT token, owner_user_id, owner_cognito_sub, owner_email, device_id, expires_at, used_at, created_at
         FROM relay_connect_tokens
         WHERE token = ?
         LIMIT 1
@@ -334,7 +581,7 @@ export async function createRelayStore(options: { port: number }) {
       [token],
     );
     const row = rows[0];
-    if (!row) {
+    if (!row || !row.owner_user_id) {
       return null;
     }
 
@@ -346,7 +593,7 @@ export async function createRelayStore(options: { port: number }) {
 
     return {
       token: row.token,
-      userId: row.owner_cognito_sub,
+      userId: row.owner_user_id,
       userEmail: row.owner_email,
       deviceId: row.device_id,
       expiresAt,
@@ -374,11 +621,10 @@ export async function createRelayStore(options: { port: number }) {
       expiresAt: new Date(Date.now() + PAIRING_CODE_TTL_MS).toISOString(),
     };
 
-    await upsertRelayUser(session);
     await pool.execute(
       `
         INSERT INTO relay_pairing_codes
-          (code, owner_cognito_sub, owner_email, owner_label, expires_at, claimed_at, claimed_device_id, created_at)
+          (code, owner_user_id, owner_email, owner_label, expires_at, claimed_at, claimed_device_id, created_at)
         VALUES (?, ?, ?, ?, ?, NULL, NULL, ?)
       `,
       [
@@ -391,7 +637,7 @@ export async function createRelayStore(options: { port: number }) {
       ],
     );
     await writeAuditLog("pairing_code.created", {
-      actorCognitoSub: session.user.id,
+      actorUserId: session.user.id,
       payloadJson: JSON.stringify(record),
     });
 
@@ -408,7 +654,7 @@ export async function createRelayStore(options: { port: number }) {
       await connection.beginTransaction();
       const [rows] = await connection.execute<RelayPairingCodeRow[]>(
         `
-          SELECT code, owner_cognito_sub, owner_email, owner_label, expires_at, claimed_at, claimed_device_id, created_at
+          SELECT code, owner_user_id, owner_cognito_sub, owner_email, owner_label, expires_at, claimed_at, claimed_device_id, created_at
           FROM relay_pairing_codes
           WHERE code = ?
           LIMIT 1
@@ -417,7 +663,7 @@ export async function createRelayStore(options: { port: number }) {
         [code],
       );
       const pairingRow = rows[0];
-      if (!pairingRow) {
+      if (!pairingRow || !pairingRow.owner_user_id) {
         throw new Error("Pairing code not found.");
       }
 
@@ -437,6 +683,7 @@ export async function createRelayStore(options: { port: number }) {
         `
           INSERT INTO relay_devices (
             device_id,
+            owner_user_id,
             owner_cognito_sub,
             owner_email,
             display_name,
@@ -449,8 +696,9 @@ export async function createRelayStore(options: { port: number }) {
             created_at,
             updated_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
           ON DUPLICATE KEY UPDATE
+            owner_user_id = VALUES(owner_user_id),
             owner_cognito_sub = VALUES(owner_cognito_sub),
             owner_email = VALUES(owner_email),
             display_name = VALUES(display_name),
@@ -463,7 +711,8 @@ export async function createRelayStore(options: { port: number }) {
         `,
         [
           deviceId,
-          pairingRow.owner_cognito_sub,
+          pairingRow.owner_user_id,
+          pairingRow.owner_cognito_sub || null,
           pairingRow.owner_email,
           payload.device.displayName,
           hashSecret(deviceSecret),
@@ -488,7 +737,8 @@ export async function createRelayStore(options: { port: number }) {
       await connection.commit();
 
       await writeAuditLog("pairing_code.claimed", {
-        actorCognitoSub: pairingRow.owner_cognito_sub,
+        actorUserId: pairingRow.owner_user_id,
+        actorCognitoSub: pairingRow.owner_cognito_sub || null,
         deviceId,
         payloadJson: JSON.stringify({
           deviceId,
@@ -513,6 +763,148 @@ export async function createRelayStore(options: { port: number }) {
     } finally {
       connection.release();
     }
+  }
+
+  async function exchangeOidcIdToken(methodId: string, idToken: string): Promise<RelayAuthExchangeResponse> {
+    const method = config.oidcMethods.find((entry) => entry.id === methodId);
+    if (!method) {
+      throw new Error("OIDC method is not configured.");
+    }
+
+    const claims = await verifyOidcIdToken(method, idToken);
+    const user = await findRelayUserForOidc(method, claims);
+    return issueRelayTokens(user);
+  }
+
+  async function getLocalAdminSetupStatus(methodId: string): Promise<RelayLocalSetupStatusResponse> {
+    const method = config.localAdminMethods.find((entry) => entry.id === methodId);
+    if (!method) {
+      throw new Error("Local admin auth is not configured.");
+    }
+
+    return {
+      methodId: method.id,
+      setupRequired: !(await hasAnyLocalAdmin()),
+      bootstrapEnabled: method.bootstrapEnabled,
+    };
+  }
+
+  async function localAdminSetup(
+    methodId: string,
+    email: string,
+    password: string,
+    bootstrapToken: string,
+  ): Promise<RelayAuthExchangeResponse> {
+    const method = config.localAdminMethods.find((entry) => entry.id === methodId);
+    if (!method) {
+      throw new Error("Local admin auth is not configured.");
+    }
+
+    if (!(await getLocalAdminSetupStatus(methodId)).setupRequired) {
+      throw new Error("Local admin setup is already complete.");
+    }
+
+    if (!method.bootstrapToken || bootstrapToken.trim() !== method.bootstrapToken) {
+      throw new Error("Bootstrap token is invalid.");
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    const passwordHash = await createPasswordHash(password);
+    const user = await createRelayUser({
+      authProvider: getProviderKey("local-admin", method.id),
+      authSubject: normalizedEmail,
+      email: normalizedEmail,
+      passwordHash,
+    });
+
+    return issueRelayTokens(user);
+  }
+
+  async function localAdminLogin(
+    methodId: string,
+    email: string,
+    password: string,
+  ): Promise<RelayAuthExchangeResponse> {
+    const method = config.localAdminMethods.find((entry) => entry.id === methodId);
+    if (!method) {
+      throw new Error("Local admin auth is not configured.");
+    }
+
+    const user = await findLocalAdminByEmail(method, email);
+    if (!user) {
+      throw new Error("Email or password is invalid.");
+    }
+
+    const passwordValid = await verifyPasswordHash(password, user.password_hash);
+    if (!passwordValid) {
+      throw new Error("Email or password is invalid.");
+    }
+
+    return issueRelayTokens(user);
+  }
+
+  async function refreshAuthSession(refreshToken: string): Promise<RelayAuthExchangeResponse> {
+    const tokenHash = hashToken(refreshToken);
+    const [rows] = await pool.execute<RelayRefreshTokenRow[]>(
+      `
+        SELECT token_hash, user_id, expires_at, revoked_at, created_at, replaced_by_token_hash
+        FROM relay_refresh_tokens
+        WHERE token_hash = ?
+        LIMIT 1
+      `,
+      [tokenHash],
+    );
+    const row = rows[0];
+    if (!row) {
+      throw new Error("Refresh token is invalid.");
+    }
+
+    if (row.revoked_at) {
+      throw new Error("Refresh token has been revoked.");
+    }
+
+    const expiresAt = fromSqlDateTime(row.expires_at).toISOString();
+    if (Date.parse(expiresAt) <= Date.now()) {
+      await revokeRefreshToken(tokenHash);
+      throw new Error("Refresh token expired.");
+    }
+
+    const user = await findRelayUserById(row.user_id);
+    if (!user) {
+      await revokeRefreshToken(tokenHash);
+      throw new Error("Refresh token is invalid.");
+    }
+
+    const next = await issueRelayTokens(user);
+    await revokeRefreshToken(tokenHash, hashToken(next.tokens.refreshToken));
+    return next;
+  }
+
+  async function logoutSession(refreshToken: string | null): Promise<void> {
+    if (!refreshToken) {
+      return;
+    }
+
+    await revokeRefreshToken(hashToken(refreshToken));
+  }
+
+  async function getClientAuthConfig(baseUrl: string): Promise<RelayClientAuthConfig> {
+    const localAdminSetupRequired = !(await hasAnyLocalAdmin());
+
+    return {
+      serverName: config.serverName,
+      serverUrl: baseUrl,
+      methods: [
+        ...config.oidcMethods.map(({ jwksUri: _jwksUri, ...method }) => method),
+        ...config.localAdminMethods.map((method) => ({
+          id: method.id,
+          type: method.type,
+          label: method.label,
+          setupRequired: localAdminSetupRequired,
+          bootstrapEnabled: method.bootstrapEnabled,
+        })),
+      ],
+    };
   }
 
   async function refreshDevicePresence(summary: RelayDeviceSummary): Promise<void> {
@@ -604,8 +996,7 @@ export async function createRelayStore(options: { port: number }) {
   async function handlePubsubMessage(channel: string, rawMessage: string): Promise<void> {
     if (channel === DEVICE_CHANNEL) {
       const { targetDeviceId, message } = JSON.parse(rawMessage) as DevicePubsubMessage;
-      const deviceId = targetDeviceId;
-      const device = localDevices.get(deviceId);
+      const device = localDevices.get(targetDeviceId);
       if (!device) {
         return;
       }
@@ -616,8 +1007,7 @@ export async function createRelayStore(options: { port: number }) {
 
     if (channel === CLIENT_CHANNEL) {
       const { targetSessionId, message } = JSON.parse(rawMessage) as ClientPubsubMessage;
-      const sessionId = targetSessionId;
-      const client = localClients.get(sessionId);
+      const client = localClients.get(targetSessionId);
       if (!client) {
         return;
       }
@@ -811,18 +1201,12 @@ export async function createRelayStore(options: { port: number }) {
   }
 
   async function getSessionByUserId(userId: string): Promise<SessionRecord | null> {
-    const row = await findRelayUser(userId);
+    const row = await findRelayUserById(userId);
     if (!row) {
       return null;
     }
 
-    return {
-      user: {
-        id: row.cognito_sub,
-        email: row.email,
-      },
-      expiresAt: null,
-    };
+    return toRelaySession(row, null);
   }
 
   async function sendUpdateRpc(
@@ -862,9 +1246,17 @@ export async function createRelayStore(options: { port: number }) {
   }
 
   return {
+    config,
     pool,
     redis,
     subscriber,
+    getClientAuthConfig,
+    exchangeOidcIdToken,
+    getLocalAdminSetupStatus,
+    localAdminSetup,
+    localAdminLogin,
+    refreshAuthSession,
+    logoutSession,
     getSessionFromRequest,
     requireSession,
     serializeRelaySession,

@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { CenteredStatus } from "./components/CenteredStatus";
-import { signOutHostedUi } from "./lib/auth";
-import { emptyRelaySession, fetchRelayJson } from "./lib/relay-api";
+import { restoreRelaySession, signOutRelaySession } from "./lib/auth";
+import { emptyRelaySession } from "./lib/relay-api";
 import { DevicesPage } from "./pages/DevicesPage";
 import { LoginCallbackPage } from "./pages/LoginCallbackPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -27,7 +27,7 @@ export function App() {
       return;
     }
 
-    void fetchRelayJson<RelayAuthSession>("/api/session")
+    void restoreRelaySession()
       .then((result) => setSession(result))
       .catch(() => {
         setSession(emptyRelaySession());
@@ -41,11 +41,11 @@ export function App() {
 
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage session={session} onSignOut={signOutHostedUi} />} />
+      <Route path="/login" element={<LoginPage session={session} onSession={setSession} onSignOut={signOutRelaySession} />} />
       <Route path="/login/callback" element={<LoginCallbackPage onSession={setSession} />} />
       <Route
         path="/devices"
-        element={session.user ? <DevicesPage session={session} onSignOut={signOutHostedUi} /> : <Navigate to="/login" replace />}
+        element={session.user ? <DevicesPage session={session} onSignOut={signOutRelaySession} /> : <Navigate to="/login" replace />}
       />
       <Route
         path="/*"

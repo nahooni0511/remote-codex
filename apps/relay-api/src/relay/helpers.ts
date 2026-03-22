@@ -1,12 +1,48 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes, scrypt as nodeScrypt, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
 
 import type { Request } from "express";
 import type { RelayDeviceSummary } from "@remote-codex/contracts";
 
 import type { RelayDeviceRow, RelayUserRow, SessionRecord } from "./types";
 
+const scrypt = promisify(nodeScrypt);
+
 export function hashSecret(secret: string): string {
   return createHash("sha256").update(secret).digest("hex");
+}
+
+export function hashToken(token: string): string {
+  return hashSecret(token);
+}
+
+export function generateOpaqueToken(bytes = 32): string {
+  return randomBytes(bytes).toString("base64url");
+}
+
+export async function createPasswordHash(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const derived = (await scrypt(password, salt, 64)) as Buffer;
+  return `scrypt:${salt}:${derived.toString("hex")}`;
+}
+
+export async function verifyPasswordHash(password: string, storedHash: string | null): Promise<boolean> {
+  if (!storedHash) {
+    return false;
+  }
+
+  const [algorithm, salt, expectedHex] = storedHash.split(":");
+  if (algorithm !== "scrypt" || !salt || !expectedHex) {
+    return false;
+  }
+
+  const actual = (await scrypt(password, salt, expectedHex.length / 2)) as Buffer;
+  const expected = Buffer.from(expectedHex, "hex");
+  if (actual.length !== expected.length) {
+    return false;
+  }
+
+  return timingSafeEqual(actual, expected);
 }
 
 export function parseBearerToken(request: Request): string | null {
@@ -57,7 +93,7 @@ export function fromSqlDateTime(value: Date | string): Date {
 }
 
 export function toRelaySession(
-  row: Pick<RelayUserRow, "cognito_sub" | "email"> | null,
+  row: Pick<RelayUserRow, "id" | "email"> | null,
   expiresAt: string | null,
 ): SessionRecord | null {
   if (!row) {
@@ -66,7 +102,7 @@ export function toRelaySession(
 
   return {
     user: {
-      id: row.cognito_sub,
+      id: row.id,
       email: row.email,
     },
     expiresAt,

@@ -1,35 +1,45 @@
+import type { RelayAuthExchangeResponse, RelayAuthUser } from "@remote-codex/contracts";
+import { normalizeRelayServerUrl } from "@remote-codex/contracts";
 import * as AuthSession from "expo-auth-session";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
-import type { TokenResponseConfig } from "expo-auth-session";
-import { TokenError } from "expo-auth-session";
 
 import { getExpoPublicEnv } from "./env";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const STORAGE_KEY = "remote-codex.relay-auth";
-const SELECTED_DEVICE_KEY = "remote-codex.selected-device-id";
 const APP_SCHEME = "remotecodexrelaymobile";
+const STORAGE_VERSION = "remote-codex.relay-auth-v2";
+const CURRENT_SERVER_KEY = `${STORAGE_VERSION}:current-server`;
+const SAVED_SERVERS_KEY = `${STORAGE_VERSION}:saved-servers`;
+const LEGACY_MIGRATION_KEY = `${STORAGE_VERSION}:legacy-cleared`;
+const LEGACY_AUTH_KEY = "remote-codex.relay-auth";
+const LEGACY_SELECTED_DEVICE_KEY = "remote-codex.selected-device-id";
 
-export type StoredAuth = TokenResponseConfig & { idToken: string };
+export type StoredAuth = {
+  version: 2;
+  serverUrl: string;
+  methodId: string;
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+  refreshExpiresAt: string;
+  user: RelayAuthUser;
+};
 
 let refreshPromise: Promise<StoredAuth | null> | null = null;
 
-export function getCognitoDomain(): string {
-  const configured = getExpoPublicEnv("EXPO_PUBLIC_COGNITO_DOMAIN");
-
-  return configured.startsWith("http://") || configured.startsWith("https://")
-    ? configured.replace(/\/$/, "")
-    : `https://${configured.replace(/\/$/, "")}`;
+function makeSessionKey(serverUrl: string): string {
+  return `${STORAGE_VERSION}:session:${encodeURIComponent(serverUrl)}`;
 }
 
-export function getCognitoClientId(): string {
-  return getExpoPublicEnv("EXPO_PUBLIC_COGNITO_CLIENT_ID");
+function makeSelectedDeviceKey(serverUrl: string): string {
+  return `${STORAGE_VERSION}:selected-device:${encodeURIComponent(serverUrl)}`;
 }
 
-export function getCognitoRegion(): string {
-  return getExpoPublicEnv("EXPO_PUBLIC_COGNITO_REGION");
+function buildApiUrl(serverUrl: string, path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${serverUrl}${normalizedPath}`;
 }
 
 export function getRedirectUri(): string {
@@ -40,93 +50,140 @@ export function getRedirectUri(): string {
   });
 }
 
-export function getHostedUiDiscovery() {
-  const domain = getCognitoDomain();
-  return {
-    authorizationEndpoint: `${domain}/login`,
-    tokenEndpoint: `${domain}/oauth2/token`,
-    revocationEndpoint: `${domain}/oauth2/revoke`,
-    endSessionEndpoint: `${domain}/logout`,
-  };
+export function getDefaultRelayServerUrl(): string {
+  return normalizeRelayServerUrl(getExpoPublicEnv("EXPO_PUBLIC_DEFAULT_RELAY_SERVER_URL"));
 }
 
 function isStoredAuth(value: unknown): value is StoredAuth {
   return (
     typeof value === "object" &&
     value !== null &&
+    (value as { version?: unknown }).version === 2 &&
+    typeof (value as { serverUrl?: unknown }).serverUrl === "string" &&
+    typeof (value as { methodId?: unknown }).methodId === "string" &&
     typeof (value as { accessToken?: unknown }).accessToken === "string" &&
-    typeof (value as { idToken?: unknown }).idToken === "string"
+    typeof (value as { refreshToken?: unknown }).refreshToken === "string" &&
+    typeof (value as { expiresAt?: unknown }).expiresAt === "string" &&
+    typeof (value as { refreshExpiresAt?: unknown }).refreshExpiresAt === "string" &&
+    typeof (value as { user?: { id?: unknown; email?: unknown } }).user?.id === "string" &&
+    typeof (value as { user?: { id?: unknown; email?: unknown } }).user?.email === "string"
   );
 }
 
-function toTokenResponse(auth: StoredAuth): AuthSession.TokenResponse {
-  return new AuthSession.TokenResponse(auth);
-}
-
-export function createStoredAuth(tokenResponse: AuthSession.TokenResponse): StoredAuth {
-  const config = tokenResponse.getRequestConfig();
-  if (!config.idToken) {
-    throw new Error("Cognito did not return an id token.");
+async function getRawSavedServerUrls(): Promise<string[]> {
+  const raw = await SecureStore.getItemAsync(SAVED_SERVERS_KEY);
+  if (!raw) {
+    return [];
   }
 
-  return config as StoredAuth;
-}
-
-export async function signInWithPassword(email: string, password: string): Promise<StoredAuth> {
-  const response = await fetch(`https://cognito-idp.${getCognitoRegion()}.amazonaws.com/`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/x-amz-json-1.1",
-      "x-amz-target": "AWSCognitoIdentityProviderService.InitiateAuth",
-    },
-    body: JSON.stringify({
-      AuthFlow: "USER_PASSWORD_AUTH",
-      ClientId: getCognitoClientId(),
-      AuthParameters: {
-        USERNAME: email,
-        PASSWORD: password,
-      },
-    }),
-  });
-
-  const payload = (await response.json()) as {
-    AuthenticationResult?: {
-      AccessToken: string;
-      IdToken: string;
-      RefreshToken?: string;
-      TokenType?: string;
-      ExpiresIn?: number;
-    };
-    ChallengeName?: string;
-    message?: string;
-    Message?: string;
-    __type?: string;
-  };
-
-  if (!response.ok) {
-    throw new Error(payload.message || payload.Message || payload.__type || "Password sign-in failed.");
-  }
-
-  if (!payload.AuthenticationResult?.AccessToken || !payload.AuthenticationResult.IdToken) {
-    if (payload.ChallengeName) {
-      throw new Error(`Unsupported Cognito challenge: ${payload.ChallengeName}`);
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
     }
 
-    throw new Error("Cognito did not return an access token.");
+    return parsed
+      .map((entry) => (typeof entry === "string" ? entry : ""))
+      .filter(Boolean)
+      .map((entry) => {
+        try {
+          return normalizeRelayServerUrl(entry);
+        } catch {
+          return "";
+        }
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+async function setRawSavedServerUrls(urls: string[]): Promise<void> {
+  await SecureStore.setItemAsync(SAVED_SERVERS_KEY, JSON.stringify(Array.from(new Set(urls))));
+}
+
+export async function clearLegacyAuthStorage(): Promise<void> {
+  if ((await SecureStore.getItemAsync(LEGACY_MIGRATION_KEY)) === "1") {
+    return;
+  }
+
+  await Promise.all([
+    SecureStore.deleteItemAsync(LEGACY_AUTH_KEY),
+    SecureStore.deleteItemAsync(LEGACY_SELECTED_DEVICE_KEY),
+    SecureStore.setItemAsync(LEGACY_MIGRATION_KEY, "1"),
+  ]);
+}
+
+export async function getCurrentServerUrl(): Promise<string> {
+  const stored = (await SecureStore.getItemAsync(CURRENT_SERVER_KEY)) || "";
+  if (stored) {
+    try {
+      return normalizeRelayServerUrl(stored);
+    } catch {
+      await SecureStore.deleteItemAsync(CURRENT_SERVER_KEY);
+    }
+  }
+
+  const fallback = getDefaultRelayServerUrl();
+  await setCurrentServerUrl(fallback);
+  return fallback;
+}
+
+export async function setCurrentServerUrl(serverUrl: string): Promise<string> {
+  const normalized = normalizeRelayServerUrl(serverUrl);
+  await SecureStore.setItemAsync(CURRENT_SERVER_KEY, normalized);
+  await saveServerUrl(normalized);
+  return normalized;
+}
+
+export async function getSavedServerUrls(): Promise<string[]> {
+  const current = await getCurrentServerUrl();
+  return Array.from(new Set([current, ...(await getRawSavedServerUrls())]));
+}
+
+export async function saveServerUrl(serverUrl: string): Promise<void> {
+  const normalized = normalizeRelayServerUrl(serverUrl);
+  const saved = await getRawSavedServerUrls();
+  await setRawSavedServerUrls([normalized, ...saved]);
+}
+
+export async function removeSavedServerUrl(serverUrl: string): Promise<void> {
+  const normalized = normalizeRelayServerUrl(serverUrl);
+  const defaultServerUrl = getDefaultRelayServerUrl();
+  const saved = await getRawSavedServerUrls();
+  await setRawSavedServerUrls(saved.filter((entry) => entry !== normalized));
+  await clearStoredAuth(normalized);
+  await setSelectedDeviceId(null, normalized);
+
+  if ((await getCurrentServerUrl()) === normalized) {
+    await setCurrentServerUrl(defaultServerUrl);
+  }
+}
+
+export function createStoredAuthFromExchange(
+  serverUrl: string,
+  methodId: string,
+  payload: RelayAuthExchangeResponse,
+): StoredAuth {
+  if (!payload.session.user) {
+    throw new Error("Relay auth exchange did not return an authenticated user.");
   }
 
   return {
-    accessToken: payload.AuthenticationResult.AccessToken,
-    idToken: payload.AuthenticationResult.IdToken,
-    refreshToken: payload.AuthenticationResult.RefreshToken,
-    tokenType: "bearer",
-    expiresIn: payload.AuthenticationResult.ExpiresIn,
-    issuedAt: Math.floor(Date.now() / 1000),
+    version: 2,
+    serverUrl: normalizeRelayServerUrl(serverUrl),
+    methodId,
+    accessToken: payload.tokens.accessToken,
+    refreshToken: payload.tokens.refreshToken,
+    expiresAt: payload.tokens.expiresAt,
+    refreshExpiresAt: payload.tokens.refreshExpiresAt,
+    user: payload.session.user,
   };
 }
 
-export async function getStoredAuth(): Promise<StoredAuth | null> {
-  const raw = await SecureStore.getItemAsync(STORAGE_KEY);
+export async function getStoredAuth(serverUrl?: string | null): Promise<StoredAuth | null> {
+  const resolvedServerUrl = serverUrl ? normalizeRelayServerUrl(serverUrl) : await getCurrentServerUrl();
+  const raw = await SecureStore.getItemAsync(makeSessionKey(resolvedServerUrl));
   if (!raw) {
     return null;
   }
@@ -140,72 +197,92 @@ export async function getStoredAuth(): Promise<StoredAuth | null> {
 }
 
 export async function persistStoredAuth(auth: StoredAuth): Promise<void> {
-  await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(auth));
+  const normalizedServerUrl = normalizeRelayServerUrl(auth.serverUrl);
+  await Promise.all([
+    saveServerUrl(normalizedServerUrl),
+    setCurrentServerUrl(normalizedServerUrl),
+    SecureStore.setItemAsync(makeSessionKey(normalizedServerUrl), JSON.stringify({ ...auth, serverUrl: normalizedServerUrl })),
+  ]);
 }
 
-export async function clearStoredAuth(): Promise<void> {
-  await SecureStore.deleteItemAsync(STORAGE_KEY);
+export async function clearStoredAuth(serverUrl?: string | null): Promise<void> {
+  const resolvedServerUrl = serverUrl ? normalizeRelayServerUrl(serverUrl) : await getCurrentServerUrl();
+  await SecureStore.deleteItemAsync(makeSessionKey(resolvedServerUrl));
 }
 
-export async function getValidStoredAuth(options: { forceRefresh?: boolean } = {}): Promise<StoredAuth | null> {
-  const current = await getStoredAuth();
-  if (!current?.idToken) {
+async function refreshStoredAuth(auth: StoredAuth): Promise<StoredAuth | null> {
+  const response = await fetch(buildApiUrl(auth.serverUrl, "/api/auth/refresh"), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      refreshToken: auth.refreshToken,
+    }),
+  });
+
+  if (response.status === 401) {
+    await clearStoredAuth(auth.serverUrl);
     return null;
   }
 
-  const tokenResponse = toTokenResponse(current);
-  if (!options.forceRefresh && !tokenResponse.shouldRefresh()) {
-    return createStoredAuth(tokenResponse);
+  if (!response.ok) {
+    throw new Error(await response.text());
   }
 
-  if (!tokenResponse.refreshToken) {
-    return createStoredAuth(tokenResponse);
+  const payload = (await response.json()) as RelayAuthExchangeResponse;
+  const next = createStoredAuthFromExchange(auth.serverUrl, auth.methodId, payload);
+  await persistStoredAuth(next);
+  return next;
+}
+
+export async function getValidStoredAuth(
+  serverUrl?: string | null,
+  options: { forceRefresh?: boolean } = {},
+): Promise<StoredAuth | null> {
+  const current = await getStoredAuth(serverUrl);
+  if (!current) {
+    return null;
+  }
+
+  const expiresAtMs = Date.parse(current.expiresAt);
+  const shouldRefresh =
+    options.forceRefresh ||
+    !Number.isFinite(expiresAtMs) ||
+    expiresAtMs <= Date.now() + 60_000;
+
+  if (!shouldRefresh) {
+    return current;
   }
 
   if (refreshPromise) {
     return refreshPromise;
   }
 
-  refreshPromise = tokenResponse
-    .refreshAsync(
-      {
-        clientId: getCognitoClientId(),
-      },
-      getHostedUiDiscovery(),
-    )
-    .then(async (nextTokenResponse) => {
-      const nextAuth = createStoredAuth(nextTokenResponse);
-      await persistStoredAuth(nextAuth);
-      return nextAuth;
-    })
-    .catch(async (caught) => {
-      if (caught instanceof TokenError && caught.code === "invalid_grant") {
-        await clearStoredAuth();
-        return null;
-      }
-
-      throw caught;
-    })
-    .finally(() => {
-      refreshPromise = null;
-    });
-
+  refreshPromise = refreshStoredAuth(current).finally(() => {
+    refreshPromise = null;
+  });
   return refreshPromise;
 }
 
-export async function getValidIdToken(options: { forceRefresh?: boolean } = {}): Promise<string | null> {
-  return (await getValidStoredAuth(options))?.idToken || null;
+export async function getValidAccessToken(
+  serverUrl?: string | null,
+  options: { forceRefresh?: boolean } = {},
+): Promise<string | null> {
+  return (await getValidStoredAuth(serverUrl, options))?.accessToken || null;
 }
 
-export async function getSelectedDeviceId(): Promise<string | null> {
-  return (await SecureStore.getItemAsync(SELECTED_DEVICE_KEY)) || null;
+export async function getSelectedDeviceId(serverUrl?: string | null): Promise<string | null> {
+  const resolvedServerUrl = serverUrl ? normalizeRelayServerUrl(serverUrl) : await getCurrentServerUrl();
+  return (await SecureStore.getItemAsync(makeSelectedDeviceKey(resolvedServerUrl))) || null;
 }
 
-export async function setSelectedDeviceId(deviceId: string | null): Promise<void> {
+export async function setSelectedDeviceId(deviceId: string | null, serverUrl?: string | null): Promise<void> {
+  const resolvedServerUrl = serverUrl ? normalizeRelayServerUrl(serverUrl) : await getCurrentServerUrl();
   if (!deviceId) {
-    await SecureStore.deleteItemAsync(SELECTED_DEVICE_KEY);
+    await SecureStore.deleteItemAsync(makeSelectedDeviceKey(resolvedServerUrl));
     return;
   }
 
-  await SecureStore.setItemAsync(SELECTED_DEVICE_KEY, deviceId);
+  await SecureStore.setItemAsync(makeSelectedDeviceKey(resolvedServerUrl), deviceId);
 }

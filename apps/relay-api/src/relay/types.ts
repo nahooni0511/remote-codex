@@ -1,4 +1,12 @@
-import type { AppUpdateApplyResult, AppUpdateStatus, BridgeMessage, RelayAuthUser, RelayDeviceSummary } from "@remote-codex/contracts";
+import type {
+  AppUpdateApplyResult,
+  AppUpdateStatus,
+  BridgeMessage,
+  RelayAuthUser,
+  RelayDeviceSummary,
+  RelayLocalAdminAuthMethod,
+  RelayOidcAuthMethod,
+} from "@remote-codex/contracts";
 import type { RowDataPacket } from "mysql2/promise";
 import type { WebSocket } from "ws";
 
@@ -49,13 +57,19 @@ export type LocalClientConnection = {
 };
 
 export type RelayUserRow = RowDataPacket & {
-  cognito_sub: string;
+  id: string;
+  auth_provider: string;
+  auth_subject: string;
+  auth_issuer: string | null;
   email: string;
+  password_hash: string | null;
+  cognito_sub?: string | null;
 };
 
 export type RelayDeviceRow = RowDataPacket & {
   device_id: string;
-  owner_cognito_sub: string;
+  owner_user_id: string | null;
+  owner_cognito_sub?: string | null;
   owner_email: string | null;
   display_name: string;
   device_secret_hash: string;
@@ -70,7 +84,8 @@ export type RelayDeviceRow = RowDataPacket & {
 
 export type RelayPairingCodeRow = RowDataPacket & {
   code: string;
-  owner_cognito_sub: string;
+  owner_user_id: string | null;
+  owner_cognito_sub?: string | null;
   owner_email: string;
   owner_label: string;
   expires_at: string;
@@ -81,7 +96,8 @@ export type RelayPairingCodeRow = RowDataPacket & {
 
 export type RelayConnectTokenRow = RowDataPacket & {
   token: string;
-  owner_cognito_sub: string;
+  owner_user_id: string | null;
+  owner_cognito_sub?: string | null;
   owner_email: string;
   device_id: string;
   expires_at: string;
@@ -89,18 +105,36 @@ export type RelayConnectTokenRow = RowDataPacket & {
   created_at: string;
 };
 
+export type RelayRefreshTokenRow = RowDataPacket & {
+  token_hash: string;
+  user_id: string;
+  expires_at: string;
+  revoked_at: string | null;
+  created_at: string;
+  replaced_by_token_hash: string | null;
+};
+
+export type RelayStoreOidcMethodConfig = RelayOidcAuthMethod & {
+  jwksUri: string;
+};
+
+export type RelayStoreLocalAdminMethodConfig = RelayLocalAdminAuthMethod & {
+  bootstrapToken: string | null;
+};
+
 export type RelayStoreConfig = {
   port: number;
+  serverName: string;
   databaseHost: string;
   databasePort: number;
   databaseName: string;
   databaseUser: string;
   databasePassword: string;
   valkeyUrl: string;
-  cognitoRegion: string;
-  cognitoUserPoolId: string;
-  cognitoWebClientId: string;
-  testAuthToken: string | null;
-  testAuthEmail: string | null;
-  testAuthUserId: string | null;
+  authSessionSecret: string;
+  authAccessTokenTtlSeconds: number;
+  authRefreshTokenTtlSeconds: number;
+  oidcMethods: RelayStoreOidcMethodConfig[];
+  localAdminMethods: RelayStoreLocalAdminMethodConfig[];
+  defaultOidcIssuer: string | null;
 };

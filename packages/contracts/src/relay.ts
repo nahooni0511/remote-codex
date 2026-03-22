@@ -70,9 +70,78 @@ export interface RelayAuthSession {
   expiresAt: string | null;
 }
 
-export interface RelayClientAuthConfig {
-  userPoolId: string;
+export interface RelayOidcAuthMethod {
+  id: string;
+  type: "oidc";
+  label: string;
+  issuer: string;
   clientId: string;
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+  revocationEndpoint?: string | null;
+  endSessionEndpoint?: string | null;
+  scopes: string[];
+  pkce: true;
+}
+
+export interface RelayLocalAdminAuthMethod {
+  id: string;
+  type: "local-admin";
+  label: string;
+  setupRequired: boolean;
+  bootstrapEnabled: boolean;
+}
+
+export type RelayAuthMethod = RelayOidcAuthMethod | RelayLocalAdminAuthMethod;
+
+export interface RelayClientAuthConfig {
+  serverName: string;
+  serverUrl: string;
+  methods: RelayAuthMethod[];
+}
+
+export interface RelayAuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: string;
+  refreshExpiresAt: string;
+}
+
+export interface RelayAuthExchangeResponse {
+  session: RelayAuthSession;
+  tokens: RelayAuthTokens;
+}
+
+export interface RelayOidcExchangeRequest {
+  methodId: string;
+  idToken: string;
+}
+
+export interface RelayLocalLoginRequest {
+  methodId: string;
+  email: string;
+  password: string;
+}
+
+export interface RelayLocalSetupStatusResponse {
+  methodId: string;
+  setupRequired: boolean;
+  bootstrapEnabled: boolean;
+}
+
+export interface RelayLocalSetupRequest {
+  methodId: string;
+  email: string;
+  password: string;
+  bootstrapToken: string;
+}
+
+export interface RelayRefreshRequest {
+  refreshToken: string;
+}
+
+export interface RelayLogoutRequest {
+  refreshToken?: string | null;
 }
 
 export interface RelayDeviceSummary {
