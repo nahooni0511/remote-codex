@@ -15,9 +15,9 @@ import {
   formatSubmittedAnswer,
   summarizeChangedFile as summarizeFileChange,
 } from "@remote-codex/workspace-core";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -31,7 +31,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import type { AnimatedList } from "react-native-gifted-chat/lib/MessageContainer/types";
 import { GiftedChat, type InputToolbarProps, type MessageProps } from "react-native-gifted-chat";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -47,7 +46,7 @@ import type {
 import { useWorkspaceAttachmentPreview } from "./hooks";
 import { palette, styles } from "./styles";
 import type { ComposerSheet, GiftedRelayMessage } from "./types";
-import { buildRenderableGiftedMessages, formatPermissionLabel, getProjectIcon, getSelectedModel } from "./utils";
+import { buildRenderableGiftedMessages, formatPermissionLabel, getSelectedModel } from "./utils";
 
 export function WorkspaceHeaderButton({
   icon,
@@ -125,12 +124,9 @@ export function ProjectListView({
       }
     >
       <ScrollView contentContainerStyle={styles.projectListContent} showsVerticalScrollIndicator={false}>
-        {projects.map((project, index) => (
+        {projects.map((project) => (
           <Pressable key={project.id} onPress={() => onOpenProject(project.id)} style={styles.projectCard}>
             <View style={styles.projectLead}>
-              <View style={styles.projectIconShell}>
-                <MaterialCommunityIcons color={palette.deepSoft} name={getProjectIcon(index)} size={20} />
-              </View>
               <View style={styles.projectCopy}>
                 <Text numberOfLines={1} style={styles.projectTitle}>
                   {project.name}
@@ -945,7 +941,6 @@ export function ChatView({
   updatingControl: string | null;
 }) {
   const insets = useSafeAreaInsets();
-  const messagesContainerRef = useRef<AnimatedList<GiftedRelayMessage>>(null!);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const latestUndoableTurnRunId = useMemo(() => {
     const summaries = messages
@@ -965,35 +960,6 @@ export function ChatView({
     () => buildRenderableGiftedMessages(messages, threadSnapshot.liveStream, thread.running),
     [messages, thread.running, threadSnapshot.liveStream],
   );
-
-  const scrollToLatestMessage = useCallback((animated = false) => {
-    requestAnimationFrame(() => {
-      if (typeof messagesContainerRef.current?.scrollToEnd === "function") {
-        messagesContainerRef.current.scrollToEnd({ animated });
-        return;
-      }
-
-      if (typeof messagesContainerRef.current?.scrollToOffset === "function") {
-        messagesContainerRef.current.scrollToOffset({ animated, offset: Number.MAX_SAFE_INTEGER });
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    if (loadingMessages) {
-      return;
-    }
-
-    scrollToLatestMessage(false);
-  }, [
-    giftedMessages.length,
-    loadingMessages,
-    scrollToLatestMessage,
-    thread.id,
-    threadSnapshot.liveStream?.assistantText,
-    threadSnapshot.liveStream?.planText,
-    threadSnapshot.liveStream?.reasoningText,
-  ]);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -1097,6 +1063,10 @@ export function ChatView({
         contentContainerStyle: styles.chatContent,
         keyboardDismissMode: Platform.OS === "ios" ? "interactive" : "on-drag",
         keyboardShouldPersistTaps: "handled",
+        maintainVisibleContentPosition: {
+          autoscrollToTopThreshold: 24,
+          minIndexForVisible: 1,
+        },
         showsVerticalScrollIndicator: false,
       }) as Record<string, unknown>,
     [chatEmptyState, chatListHeader],
@@ -1169,10 +1139,9 @@ export function ChatView({
         <View style={styles.chatBody}>
           <GiftedChat<GiftedRelayMessage>
             bottomOffset={0}
-            inverted={false}
+            inverted
             listViewProps={giftedListViewProps}
             messages={giftedMessages}
-            messageContainerRef={messagesContainerRef}
             messagesContainerStyle={styles.chatMessagesContainer}
             minInputToolbarHeight={0}
             onSend={() => undefined}

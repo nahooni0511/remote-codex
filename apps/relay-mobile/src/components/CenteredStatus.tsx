@@ -1,6 +1,6 @@
 import { ActivityIndicator, Text } from "react-native";
 
-import { styles } from "../styles";
+import { appPalette, styles } from "../styles";
 import { Screen } from "./Screen";
 import { Card } from "./ui";
 
@@ -17,7 +17,7 @@ export function CenteredStatus({ title, description, tone = "default", loading =
       <Card>
         <Text style={styles.statusTitle}>{title}</Text>
         {description ? <Text style={tone === "error" ? styles.errorText : styles.meta}>{description}</Text> : null}
-        {loading ? <ActivityIndicator color="#0f615d" size="large" /> : null}
+        {loading ? <ActivityIndicator color={appPalette.accent} size="large" /> : null}
       </Card>
     </Screen>
   );

@@ -1,5 +1,4 @@
 import type { RelayDeviceSummary } from "@remote-codex/contracts";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import type {
   WorkspaceModelOption,
@@ -25,7 +24,7 @@ export function resolveWorkspacePhase(device: RelayDeviceSummary | null, error: 
 function toGiftedRelayMessage(message: WorkspaceThreadMessage): GiftedRelayMessage {
   return {
     _id: `message:${message.id}`,
-    createdAt: 0,
+    createdAt: new Date(message.createdAt || 0).getTime(),
     kind: "history",
     record: message,
     system: false,
@@ -43,7 +42,7 @@ function toGiftedLiveMessage(
 ): GiftedRelayMessage {
   return {
     _id: `stream:${kind}`,
-    createdAt: 0,
+    createdAt: Date.now(),
     kind,
     liveText,
     system: false,
@@ -122,21 +121,13 @@ export function buildRenderableGiftedMessages(
   liveStream: WorkspaceThreadSnapshot["liveStream"],
   running: boolean,
 ): GiftedRelayMessage[] {
-  const historyMessages = messages.map(toGiftedRelayMessage);
+  const historyMessages = [...messages].reverse().map(toGiftedRelayMessage);
 
   if (!liveStream || !running) {
     return historyMessages;
   }
 
   const syntheticMessages: GiftedRelayMessage[] = [];
-
-  if (liveStream.planText && !hasRecentMatchingMessage(messages, liveStream.planText, ["plan_event"], "exact")) {
-    syntheticMessages.push(toGiftedLiveMessage("live-plan", liveStream.planText));
-  }
-
-  if (liveStream.reasoningText && !hasRecentMatchingMessage(messages, liveStream.reasoningText, ["progress_event"], "exact")) {
-    syntheticMessages.push(toGiftedLiveMessage("live-reasoning", liveStream.reasoningText));
-  }
 
   const hasAssistantDuplicate =
     hasRecentMatchingMessage(messages, liveStream.assistantText, ["assistant_message"], "prefix") ||
@@ -146,7 +137,15 @@ export function buildRenderableGiftedMessages(
     syntheticMessages.push(toGiftedLiveMessage("live-assistant", liveStream.assistantText));
   }
 
-  return [...historyMessages, ...syntheticMessages];
+  if (liveStream.reasoningText && !hasRecentMatchingMessage(messages, liveStream.reasoningText, ["progress_event"], "exact")) {
+    syntheticMessages.push(toGiftedLiveMessage("live-reasoning", liveStream.reasoningText));
+  }
+
+  if (liveStream.planText && !hasRecentMatchingMessage(messages, liveStream.planText, ["plan_event"], "exact")) {
+    syntheticMessages.push(toGiftedLiveMessage("live-plan", liveStream.planText));
+  }
+
+  return [...syntheticMessages, ...historyMessages];
 }
 
 export function formatPermissionLabel(permission: WorkspaceThread["composerSettings"]["permissionMode"]) {
@@ -191,18 +190,6 @@ export function makeOptimisticUserMessage(threadId: number, content: string, aut
     payload: null,
     createdAt: new Date().toISOString(),
   };
-}
-
-const projectIcons: Array<keyof typeof MaterialCommunityIcons.glyphMap> = [
-  "source-branch",
-  "shield-half-full",
-  "console-line",
-  "graphql",
-  "database",
-];
-
-export function getProjectIcon(index: number): keyof typeof MaterialCommunityIcons.glyphMap {
-  return projectIcons[index % projectIcons.length];
 }
 
 export function findProject(projects: WorkspaceProject[], projectId: number) {

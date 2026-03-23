@@ -5,25 +5,26 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { createPairingCode, fetchDevices } from "../lib/relay-api";
+import { appPalette } from "../styles";
 
 const palette = {
-  background: "#faf9f7",
-  surface: "#ffffff",
-  surfaceMuted: "#f4f3f1",
-  border: "rgba(192, 200, 201, 0.16)",
-  borderSoft: "rgba(192, 200, 201, 0.2)",
-  ink: "#002428",
-  inkMuted: "#404849",
-  inkSubtle: "#717879",
-  deep: "#002428",
-  deepSoft: "#0d3b3f",
-  mint: "#bfeaef",
-  mintText: "#234d51",
-  online: "#2ecc71",
-  offline: "#717879",
-  offlineCard: "rgba(244, 243, 241, 0.72)",
-  disabled: "#e3e2e0",
-  danger: "#b24534",
+  background: appPalette.background,
+  surface: appPalette.surface,
+  surfaceMuted: appPalette.surfaceMuted,
+  border: appPalette.border,
+  borderSoft: appPalette.borderStrong,
+  ink: appPalette.text,
+  inkMuted: appPalette.muted,
+  inkSubtle: appPalette.subtle,
+  deep: appPalette.surfaceElevated,
+  deepSoft: appPalette.accent,
+  mint: appPalette.accent,
+  mintText: appPalette.surfaceElevated,
+  online: appPalette.online,
+  offline: appPalette.subtle,
+  offlineCard: "#141b1d",
+  disabled: "#2b3437",
+  danger: appPalette.danger,
 };
 
 function formatOfflineStatus(lastSeenAt: string | null) {
@@ -330,7 +331,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   brandText: {
-    color: palette.deepSoft,
+    color: palette.ink,
     fontSize: 18,
     fontWeight: "800",
     letterSpacing: -0.9,
@@ -343,7 +344,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: palette.borderSoft,
+    borderColor: palette.border,
   },
   menuButtonPressed: {
     opacity: 0.85,
@@ -370,11 +371,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: palette.deep,
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
   pairingCardPressed: {
     opacity: 0.92,
@@ -421,7 +419,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   pairingResultCode: {
-    color: palette.deep,
+    color: palette.ink,
     fontSize: 28,
     fontWeight: "800",
     letterSpacing: 4,
@@ -484,17 +482,12 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
     padding: 25,
     gap: 24,
-    shadowColor: "#000000",
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
     borderWidth: 1,
-    borderColor: "rgba(192, 200, 201, 0.1)",
+    borderColor: palette.border,
   },
   deviceCardOffline: {
     backgroundColor: palette.offlineCard,
-    borderColor: palette.borderSoft,
+    borderColor: palette.border,
   },
   deviceRow: {
     flexDirection: "row",
@@ -512,12 +505,12 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 16,
-    backgroundColor: "#e9e8e6",
+    backgroundColor: appPalette.accentSoft,
     alignItems: "center",
     justifyContent: "center",
   },
   deviceIconShellOffline: {
-    backgroundColor: "rgba(233, 232, 230, 0.4)",
+    backgroundColor: appPalette.accentSurface,
   },
   deviceTextColumn: {
     flex: 1,
@@ -565,7 +558,7 @@ const styles = StyleSheet.create({
   versionChip: {
     minWidth: 84,
     borderRadius: 6,
-    backgroundColor: palette.mint,
+    backgroundColor: appPalette.accentSoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
     gap: 2,
@@ -574,12 +567,12 @@ const styles = StyleSheet.create({
     backgroundColor: palette.disabled,
   },
   versionChipText: {
-    color: palette.mintText,
+    color: palette.ink,
     fontSize: 10,
     lineHeight: 15,
   },
   versionChipSubtext: {
-    color: palette.mintText,
+    color: palette.ink,
     fontSize: 10,
     lineHeight: 15,
   },
@@ -588,7 +581,7 @@ const styles = StyleSheet.create({
   },
   workspaceButton: {
     borderRadius: 32,
-    backgroundColor: palette.deep,
+    backgroundColor: appPalette.accentStrong,
     minHeight: 52,
     flexDirection: "row",
     alignItems: "center",
@@ -600,7 +593,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   workspaceButtonLabel: {
-    color: "#ffffff",
+    color: palette.ink,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "700",
@@ -628,13 +621,10 @@ const styles = StyleSheet.create({
   menuCard: {
     minWidth: 220,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.98)",
+    backgroundColor: appPalette.surfaceElevated,
     padding: 6,
-    shadowColor: "#211b12",
-    shadowOpacity: 0.12,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: appPalette.border,
   },
   menuItem: {
     borderRadius: 14,
@@ -642,7 +632,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   menuItemPressed: {
-    backgroundColor: "rgba(15, 97, 93, 0.08)",
+    backgroundColor: appPalette.accentSoft,
   },
   menuItemDisabled: {
     opacity: 0.55,

@@ -96,7 +96,16 @@ type FetchAttachmentOptions = EnsureWorkspaceSessionOptions & {
 const sessions = new Map<string, WorkspaceSessionEntry>();
 
 function sortMessages(messages: WorkspaceThreadSnapshot["messages"]) {
-  return [...messages].sort((left, right) => left.id - right.id);
+  return [...messages].sort((left, right) => {
+    const leftTime = new Date(left.createdAt || 0).getTime();
+    const rightTime = new Date(right.createdAt || 0).getTime();
+
+    if (Number.isFinite(leftTime) && Number.isFinite(rightTime) && leftTime !== rightTime) {
+      return leftTime - rightTime;
+    }
+
+    return left.id - right.id;
+  });
 }
 
 function normalizeThreadSnapshot(

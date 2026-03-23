@@ -14,6 +14,7 @@ import {
   setCurrentServerUrl,
 } from "../lib/auth";
 import { exchangeRelayOidcIdToken, fetchRelayAuthConfig } from "../lib/relay-api";
+import { appPalette } from "../styles";
 
 function isOidcMethod(method: RelayAuthMethod): method is RelayOidcAuthMethod {
   return method.type === "oidc";
@@ -108,7 +109,7 @@ export function LoginScreen({
               onPress={() => setMenuVisible(true)}
               style={({ pressed }) => [styles.menuButton, pressed && styles.menuButtonPressed]}
             >
-              <Ionicons color="#0f615d" name="ellipsis-vertical" size={18} />
+              <Ionicons color={appPalette.accent} name="ellipsis-vertical" size={18} />
             </Pressable>
           </View>
 
@@ -212,7 +213,7 @@ export function LoginScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#fbfaf5",
+    backgroundColor: appPalette.background,
   },
   background: {
     ...StyleSheet.absoluteFillObject,
@@ -225,7 +226,7 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 130,
-    backgroundColor: "rgba(255, 219, 170, 0.5)",
+    backgroundColor: appPalette.glowTop,
   },
   glowBottom: {
     position: "absolute",
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: "rgba(15, 97, 93, 0.08)",
+    backgroundColor: appPalette.glowBottom,
   },
   safeArea: {
     flex: 1,
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   kicker: {
-    color: "#655647",
+    color: appPalette.muted,
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 1.1,
@@ -264,12 +265,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    shadowColor: "#211b12",
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    backgroundColor: appPalette.surface,
+    borderWidth: 1,
+    borderColor: appPalette.border,
   },
   menuButtonPressed: {
     opacity: 0.88,
@@ -291,13 +289,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#0f615d",
+    backgroundColor: appPalette.accentStrong,
     paddingHorizontal: 22,
-    shadowColor: "#0f615d",
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: appPalette.borderStrong,
   },
   signInButtonPressed: {
     opacity: 0.92,
@@ -306,24 +301,24 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   signInLabel: {
-    color: "#f8f5ee",
+    color: appPalette.text,
     fontSize: 16,
     fontWeight: "700",
   },
   relayServerUrl: {
-    color: "#5d625e",
+    color: appPalette.subtle,
     fontSize: 12,
     lineHeight: 18,
     textAlign: "center",
   },
   metaText: {
-    color: "#5d625e",
+    color: appPalette.muted,
     fontSize: 13,
     lineHeight: 19,
     textAlign: "center",
   },
   errorText: {
-    color: "#ae402d",
+    color: appPalette.danger,
     fontSize: 13,
     lineHeight: 19,
     textAlign: "center",
@@ -342,13 +337,10 @@ const styles = StyleSheet.create({
   menuCard: {
     minWidth: 220,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.98)",
+    backgroundColor: appPalette.surfaceElevated,
     padding: 6,
-    shadowColor: "#211b12",
-    shadowOpacity: 0.12,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: appPalette.border,
   },
   menuItem: {
     borderRadius: 14,
@@ -356,10 +348,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   menuItemPressed: {
-    backgroundColor: "rgba(15, 97, 93, 0.08)",
+    backgroundColor: appPalette.accentSoft,
   },
   menuItemLabel: {
-    color: "#211b12",
+    color: appPalette.text,
     fontSize: 15,
     fontWeight: "600",
   },

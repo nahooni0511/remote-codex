@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { appPalette } from "../styles";
+
 type ScreenProps = {
   title: string;
   subtitle?: string | null;
@@ -33,7 +35,7 @@ export function Screen({ title, subtitle, centered = false, children }: ScreenPr
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#fbfaf5",
+    backgroundColor: appPalette.background,
   },
   background: {
     ...StyleSheet.absoluteFillObject,
@@ -46,7 +48,7 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 130,
-    backgroundColor: "rgba(255, 219, 170, 0.5)",
+    backgroundColor: appPalette.glowTop,
   },
   glowBottom: {
     position: "absolute",
@@ -55,7 +57,7 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: "rgba(15, 97, 93, 0.08)",
+    backgroundColor: appPalette.glowBottom,
   },
   safeArea: {
     flex: 1,
@@ -72,30 +74,27 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 22,
     borderRadius: 26,
-    backgroundColor: "#133938",
-    shadowColor: "#133938",
-    shadowOpacity: 0.16,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 6,
+    backgroundColor: appPalette.surfaceElevated,
+    borderWidth: 1,
+    borderColor: appPalette.border,
   },
   headerCentered: {
     maxWidth: 480,
   },
   kicker: {
-    color: "rgba(247, 243, 235, 0.8)",
+    color: appPalette.muted,
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
   title: {
-    color: "#f7f3eb",
+    color: appPalette.text,
     fontSize: 30,
     fontWeight: "800",
   },
   subtitle: {
-    color: "rgba(247, 243, 235, 0.82)",
+    color: appPalette.muted,
     fontSize: 15,
     lineHeight: 22,
   },

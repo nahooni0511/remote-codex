@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { appPalette } from "../styles";
+
 export function Card({
   children,
   tone = "default",
@@ -16,7 +18,7 @@ export function Label({ children }: { children: ReactNode }) {
 }
 
 export function Field(props: React.ComponentProps<typeof TextInput>) {
-  return <TextInput placeholderTextColor="#8b7b69" style={styles.field} {...props} />;
+  return <TextInput placeholderTextColor={appPalette.subtle} style={styles.field} {...props} />;
 }
 
 export function Button({
@@ -59,34 +61,31 @@ export function ErrorText({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    backgroundColor: appPalette.surface,
     borderRadius: 22,
     padding: 18,
     gap: 12,
-    shadowColor: "#211b12",
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: appPalette.border,
   },
   cardMuted: {
-    backgroundColor: "rgba(15, 97, 93, 0.06)",
+    backgroundColor: appPalette.accentSoft,
   },
   label: {
-    color: "#655647",
+    color: appPalette.muted,
     fontSize: 13,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
   field: {
-    backgroundColor: "rgba(255, 255, 255, 0.92)",
+    backgroundColor: appPalette.surfaceMuted,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "rgba(15, 97, 93, 0.18)",
+    borderColor: appPalette.borderStrong,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: "#211b12",
+    color: appPalette.text,
     fontSize: 16,
   },
   button: {
@@ -97,15 +96,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   buttonPrimary: {
-    backgroundColor: "#0f615d",
+    backgroundColor: appPalette.accentStrong,
   },
   buttonSecondary: {
-    backgroundColor: "rgba(15, 97, 93, 0.12)",
+    backgroundColor: appPalette.accentSoft,
   },
   buttonGhost: {
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: "rgba(15, 97, 93, 0.2)",
+    borderColor: appPalette.borderStrong,
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -115,16 +114,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   buttonPrimaryLabel: {
-    color: "#f8f5ee",
+    color: appPalette.text,
   },
   buttonSecondaryLabel: {
-    color: "#0f615d",
+    color: appPalette.accent,
   },
   buttonGhostLabel: {
-    color: "#0f615d",
+    color: appPalette.text,
   },
   errorText: {
-    color: "#ae402d",
+    color: appPalette.danger,
     fontSize: 14,
     lineHeight: 20,
   },

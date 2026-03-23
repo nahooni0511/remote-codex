@@ -1,5 +1,5 @@
 import type { RelayAuthSession } from "@remote-codex/contracts";
-import { NavigationContainer } from "@react-navigation/native";
+import { DarkTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
@@ -33,7 +33,7 @@ import type { AppStackParamList, AuthStackParamList } from "./src/navigation/typ
 import { DevicesScreen } from "./src/screens/DevicesScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { RelayServerSettingsScreen } from "./src/screens/RelayServerSettingsScreen";
-import { styles } from "./src/styles";
+import { appPalette, styles } from "./src/styles";
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
@@ -179,15 +179,30 @@ export default function App() {
 
     return "Devices";
   }, []);
+  const navigationTheme = useMemo(
+    () => ({
+      ...DarkTheme,
+      colors: {
+        ...DarkTheme.colors,
+        background: appPalette.background,
+        border: appPalette.border,
+        card: appPalette.background,
+        notification: appPalette.accent,
+        primary: appPalette.accent,
+        text: appPalette.text,
+      },
+    }),
+    [],
+  );
 
   return (
     <SafeAreaProvider>
       <View style={styles.app}>
-        <StatusBar style="dark" />
+        <StatusBar backgroundColor={appPalette.background} style="light" />
         {loading ? (
           <CenteredStatus title="Loading relay session" description="Restoring your stored relay authentication." loading />
         ) : (
-          <NavigationContainer key={authenticated ? "app" : "auth"}>
+          <NavigationContainer key={authenticated ? "app" : "auth"} theme={navigationTheme}>
             {!authenticated || !storedAuth?.accessToken ? (
               <AuthStack.Navigator screenOptions={{ headerShown: false }}>
                 <AuthStack.Screen name="Login">
