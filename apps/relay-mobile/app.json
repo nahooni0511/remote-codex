@@ -15,10 +15,10 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.remotecodex.globalmobile"
+      "bundleIdentifier": "com.everyground.remotecodex"
     },
     "android": {
-      "package": "com.remotecodex.globalmobile",
+      "package": "com.everyground.remotecodex",
       "softwareKeyboardLayoutMode": "resize"
     },
     "web": {

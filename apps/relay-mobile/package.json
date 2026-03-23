@@ -5,10 +5,10 @@
   "main": "./index.js",
   "scripts": {
     "start": "expo start",
+    "build": "expo prebuild",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web",
-    "build": "expo export --platform android"
+    "web": "expo start --web"
   },
   "dependencies": {
     "@react-navigation/native": "^7.1.33",
