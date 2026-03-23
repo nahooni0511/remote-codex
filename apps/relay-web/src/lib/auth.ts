@@ -7,7 +7,7 @@ import type {
   RelayOidcAuthMethod,
 } from "@remote-codex/contracts";
 
-import { buildRelayApiUrl, getRelayServerUrl } from "./relay-server";
+import { buildRelayApiUrl, getRelayServerUrl, sanitizeRelayServerUrlForCurrentHost } from "./relay-server";
 
 const STORAGE_KEY = "remote-codex:relay-web-auth-v2";
 const OIDC_TRANSACTION_KEY = "remote-codex:relay-web-oidc-transaction";
@@ -68,6 +68,8 @@ function isStoredAuth(value: unknown): value is StoredAuth {
     typeof value === "object" &&
     value !== null &&
     (value as { version?: unknown }).version === 2 &&
+    (typeof (value as { serverUrl?: unknown }).serverUrl === "undefined" ||
+      typeof (value as { serverUrl?: unknown }).serverUrl === "string") &&
     typeof (value as { methodId?: unknown }).methodId === "string" &&
     typeof (value as { accessToken?: unknown }).accessToken === "string" &&
     typeof (value as { refreshToken?: unknown }).refreshToken === "string" &&
@@ -103,7 +105,29 @@ function getStoredAuth(): StoredAuth | null {
 
   try {
     const parsed = JSON.parse(raw) as unknown;
-    return isStoredAuth(parsed) ? parsed : null;
+    if (!isStoredAuth(parsed)) {
+      return null;
+    }
+
+    if (!parsed.serverUrl) {
+      return parsed;
+    }
+
+    const sanitizedServerUrl = sanitizeRelayServerUrlForCurrentHost(parsed.serverUrl);
+    if (!sanitizedServerUrl) {
+      const next = { ...parsed };
+      delete next.serverUrl;
+      persistStoredAuth(next);
+      return next;
+    }
+
+    if (sanitizedServerUrl !== parsed.serverUrl) {
+      const next = { ...parsed, serverUrl: sanitizedServerUrl };
+      persistStoredAuth(next);
+      return next;
+    }
+
+    return parsed;
   } catch {
     return null;
   }
