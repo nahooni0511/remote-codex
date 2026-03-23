@@ -54,7 +54,7 @@ function getOptionalNumberEnv(name: string, fallback: number): number {
 }
 
 function splitScopes(input: string | null): string[] {
-  const scopes = (input || "openid,email,profile")
+  const scopes = (input || "openid,email")
     .split(/[,\s]+/)
     .map((entry) => entry.trim())
     .filter(Boolean);
