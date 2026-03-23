@@ -12,6 +12,7 @@
     "apps/relay-mobile",
     "packages/remote-codex",
     "packages/workspace-web",
+    "packages/workspace-core",
     "packages/contracts",
     "packages/client-core"
   ],

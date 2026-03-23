@@ -1,26 +1,14 @@
 import type { CronJobListItem, MessageRecord, ProjectTreeRecord } from "@remote-codex/contracts";
-
-export interface LiveStreamState {
-  reasoningText: string;
-  assistantText: string;
-  planText: string;
-}
+import {
+  formatClockTime,
+  formatDurationMs,
+  formatEffortLabel,
+  mergeThreadMessages,
+  type LiveStreamState,
+} from "@remote-codex/workspace-core";
 
 export type ThreadMessagesMode = "reset" | "prependOlder" | "appendNewer";
-
-export function mergeThreadMessages(
-  existing: MessageRecord[],
-  incoming: MessageRecord[],
-  mode: "prepend" | "append",
-): MessageRecord[] {
-  const merged = mode === "prepend" ? [...incoming, ...existing] : [...existing, ...incoming];
-  const deduped = new Map<number, MessageRecord>();
-  merged.forEach((message) => {
-    deduped.set(message.id, message);
-  });
-
-  return Array.from(deduped.values()).sort((left, right) => left.id - right.id);
-}
+export { formatClockTime, formatDurationMs, formatEffortLabel, mergeThreadMessages, type LiveStreamState };
 
 export function formatDate(value: string | null | undefined): string {
   if (!value) {
@@ -31,37 +19,6 @@ export function formatDate(value: string | null | undefined): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
-}
-
-export function formatClockTime(value: string | null | undefined): string {
-  if (!value) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(value));
-}
-
-export function formatDurationMs(value: number | null | undefined): string {
-  if (!value || value < 1000) {
-    return "1초 미만";
-  }
-
-  const totalSeconds = Math.round(value / 1000);
-  if (totalSeconds < 60) {
-    return `${totalSeconds}초`;
-  }
-
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (!seconds) {
-    return `${minutes}분`;
-  }
-
-  return `${minutes}분 ${seconds}초`;
 }
 
 export function formatRelativeTime(value: string | null | undefined): string {

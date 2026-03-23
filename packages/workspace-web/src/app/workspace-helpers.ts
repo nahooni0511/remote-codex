@@ -1,10 +1,12 @@
 import type {
   MessageRecord,
   ThreadMode,
-  ThreadStreamRealtimeEvent,
 } from "@remote-codex/contracts";
-
-import type { LiveStreamState } from "../lib/chat";
+import {
+  applyThreadStreamEvent,
+  shouldClearLiveStreamForMessages,
+  type LiveStreamState,
+} from "@remote-codex/workspace-core";
 
 export type ThreadCacheEntry = {
   thread: {
@@ -46,58 +48,4 @@ export function buildThreadMessagesUrl(
   return `/api/threads/${threadId}/messages${query ? `?${query}` : ""}`;
 }
 
-export function applyThreadStreamEvent(
-  current: LiveStreamState | undefined,
-  event: ThreadStreamRealtimeEvent,
-): LiveStreamState | null {
-  if (event.type === "clear") {
-    return null;
-  }
-
-  const next: LiveStreamState = current
-    ? { ...current }
-    : {
-        reasoningText: "",
-        assistantText: "",
-        planText: "",
-      };
-
-  if (event.type === "reasoning-delta") {
-    next.reasoningText += event.text || "";
-  } else if (event.type === "reasoning-complete") {
-    next.reasoningText = event.text || "";
-  } else if (event.type === "assistant-delta") {
-    next.assistantText += event.text || "";
-  } else if (event.type === "assistant-complete" && event.phase !== "final_answer") {
-    next.assistantText = event.text || "";
-  } else if (event.type === "plan-updated") {
-    const lines: string[] = [];
-    if (event.explanation) {
-      lines.push(event.explanation);
-    }
-    if (Array.isArray(event.plan) && event.plan.length) {
-      if (lines.length) {
-        lines.push("");
-      }
-      event.plan.forEach((step) => {
-        lines.push(`- [${step.status}] ${step.step}`);
-      });
-    }
-    next.planText = lines.join("\n").trim();
-  }
-
-  return next.reasoningText || next.assistantText || next.planText ? next : null;
-}
-
-export function shouldClearLiveStreamForMessages(messages: MessageRecord[], running: boolean): boolean {
-  if (!running && messages.length > 0) {
-    return true;
-  }
-
-  return messages.some(
-    (message) =>
-      message.role === "assistant" ||
-      message.payload?.kind === "turn_summary" ||
-      message.payload?.kind === "user_input_request",
-  );
-}
+export { applyThreadStreamEvent, shouldClearLiveStreamForMessages };

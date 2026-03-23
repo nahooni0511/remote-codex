@@ -218,6 +218,29 @@ export async function fetchThreadMessages(client: RelayBridgeClient, threadId: n
   return JSON.parse(response.body || "null") as ThreadMessagesResponse;
 }
 
+export async function createProjectThread(
+  client: RelayBridgeClient,
+  projectId: number,
+  payload: {
+    title: string;
+  },
+) {
+  const response = await client.request({
+    method: "POST",
+    path: `/api/projects/${projectId}/threads`,
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.status >= 400) {
+    throw new Error(response.body || "Failed to create the workspace thread.");
+  }
+
+  return JSON.parse(response.body || "null") as { id: number };
+}
+
 export async function fetchMessageAttachment(client: RelayBridgeClient, messageId: number) {
   return client.request({
     method: "GET",

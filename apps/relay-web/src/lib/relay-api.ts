@@ -1,9 +1,7 @@
 import type { RelayAuthSession } from "@remote-codex/contracts";
 
-import { getValidAccessToken } from "./auth";
-
-const PROD_HOSTNAME = "remote-codex.com";
-const PROD_API_BASE_URL = "https://relay.remote-codex.com";
+import { getCurrentAuthServerUrl, getValidAccessToken } from "./auth";
+import { buildRelayApiUrl, getRelayServerUrl } from "./relay-server";
 
 export class RelayApiError extends Error {
   status: number | null;
@@ -15,35 +13,13 @@ export class RelayApiError extends Error {
   }
 }
 
-function getApiBaseUrl(): string {
-  const configured = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
-  if (configured) {
-    return configured;
-  }
-
-  if (window.location.hostname === PROD_HOSTNAME) {
-    return PROD_API_BASE_URL;
-  }
-
-  return "";
-}
-
-function buildApiUrl(path: string): string {
-  if (/^https?:\/\//.test(path)) {
-    return path;
-  }
-
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const base = getApiBaseUrl();
-  return base ? `${base}${normalizedPath}` : normalizedPath;
-}
-
-function getResolvedRequestUrl(path: string): string {
-  return new URL(buildApiUrl(path), window.location.origin).toString();
+function getResolvedRequestUrl(path: string, serverUrl: string): string {
+  return new URL(buildRelayApiUrl(path, serverUrl), window.location.origin).toString();
 }
 
 export async function fetchRelayJson<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const requestUrl = getResolvedRequestUrl(path);
+  const relayServerUrl = getCurrentAuthServerUrl() || getRelayServerUrl();
+  const requestUrl = getResolvedRequestUrl(path, relayServerUrl);
   const send = async (token: string | null): Promise<Response> => {
     try {
       return await fetch(requestUrl, {
@@ -55,10 +31,7 @@ export async function fetchRelayJson<T>(path: string, options: RequestInit = {})
         ...options,
       });
     } catch {
-      const apiBaseUrl = getApiBaseUrl();
-      const hint = apiBaseUrl
-        ? `Check that the relay API at ${apiBaseUrl} is reachable from this browser.`
-        : "This host has no explicit relay API base URL. For local Vite development, ensure the dev server proxy can reach the relay API. For deployed builds, set VITE_API_BASE_URL or provide a same-origin /api proxy.";
+      const hint = `Check that the relay API at ${relayServerUrl} is reachable from this browser.`;
       throw new RelayApiError(`Network request failed for ${requestUrl}. ${hint}`);
     }
   };

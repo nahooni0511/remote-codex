@@ -6,15 +6,9 @@ import type {
   ProjectTreeRecord,
   TelegramThreadBindingRow,
   ThreadRow,
-} from "../db";
-import {
-  db,
-  ensureTelegramProjectBindingRow,
-  mapConnection,
-  mapProject,
-  mapThread,
-  nowIso,
-} from "../db";
+} from "./types";
+import { db, nowIso } from "./core";
+import { ensureTelegramProjectBindingRow, mapConnection, mapProject, mapThread } from "./mappers";
 
 function ensureConnectionRow(projectId: number): void {
   const existing = db

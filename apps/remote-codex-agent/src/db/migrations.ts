@@ -1,13 +1,8 @@
-import type { ConnectionRow, MessageRow } from "../db";
-import {
-  createMessageEvent,
-  db,
-  ensureTelegramProjectBindingRow,
-  getDeviceProfile,
-  resolveDisplayHints,
-  resolveEventKind,
-  resolveOriginChannel,
-} from "../db";
+import type { ConnectionRow, MessageRow } from "./types";
+import { db } from "./core";
+import { ensureTelegramProjectBindingRow, resolveDisplayHints, resolveEventKind, resolveOriginChannel } from "./mappers";
+import { getDeviceProfile } from "./settings";
+import { createMessageEvent } from "./threads";
 
 function ensureConnectionBindingsFromLegacy(): void {
   const rows = db.prepare("SELECT * FROM project_telegram_connections").all() as ConnectionRow[];

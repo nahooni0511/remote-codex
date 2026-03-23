@@ -11,8 +11,9 @@ import type {
   GlobalPairingRecord,
   GlobalPairingRow,
   TelegramAuthRecord,
-} from "../db";
-import { db, mapDeviceProfile, mapGlobalPairing, nowIso } from "../db";
+} from "./types";
+import { db, nowIso } from "./core";
+import { mapDeviceProfile, mapGlobalPairing } from "./mappers";
 
 export function getSetting(key: string): string | null {
   const row = db.prepare("SELECT value FROM global_settings WHERE key = ?").get(key) as

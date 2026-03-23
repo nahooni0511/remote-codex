@@ -8,6 +8,7 @@ import { emptyRelaySession } from "./lib/relay-api";
 import { DevicesPage } from "./pages/DevicesPage";
 import { LoginCallbackPage } from "./pages/LoginCallbackPage";
 import { LoginPage } from "./pages/LoginPage";
+import { RelayServerSettingsPage } from "./pages/RelayServerSettingsPage";
 import { WorkspaceShell } from "./pages/WorkspaceShell";
 
 export function App() {
@@ -41,7 +42,11 @@ export function App() {
 
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage session={session} onSession={setSession} onSignOut={signOutRelaySession} />} />
+      <Route path="/login" element={<LoginPage session={session} />} />
+      <Route
+        path="/login/relay-server"
+        element={session.user ? <Navigate to="/devices" replace /> : <RelayServerSettingsPage />}
+      />
       <Route path="/login/callback" element={<LoginCallbackPage onSession={setSession} />} />
       <Route
         path="/devices"

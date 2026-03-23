@@ -7,13 +7,14 @@ import type {
   RelayOidcAuthMethod,
 } from "@remote-codex/contracts";
 
-const PROD_HOSTNAME = "remote-codex.com";
-const PROD_API_BASE_URL = "https://relay.remote-codex.com";
+import { buildRelayApiUrl, getRelayServerUrl } from "./relay-server";
+
 const STORAGE_KEY = "remote-codex:relay-web-auth-v2";
 const OIDC_TRANSACTION_KEY = "remote-codex:relay-web-oidc-transaction";
 
 type StoredAuth = {
   version: 2;
+  serverUrl?: string;
   methodId: string;
   accessToken: string;
   refreshToken: string;
@@ -29,6 +30,7 @@ type OidcTransaction = {
   redirectUri: string;
   codeVerifier: string;
   state: string;
+  serverUrl: string;
 };
 
 function isOidcMethod(method: RelayAuthMethod): method is RelayOidcAuthMethod {
@@ -37,25 +39,6 @@ function isOidcMethod(method: RelayAuthMethod): method is RelayOidcAuthMethod {
 
 export function isLocalAdminMethod(method: RelayAuthMethod): method is RelayLocalAdminAuthMethod {
   return method.type === "local-admin";
-}
-
-function getApiBaseUrl(): string {
-  const configured = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
-  if (configured) {
-    return configured;
-  }
-
-  if (window.location.hostname === PROD_HOSTNAME) {
-    return PROD_API_BASE_URL;
-  }
-
-  return "";
-}
-
-function buildApiUrl(path: string): string {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const base = getApiBaseUrl();
-  return new URL(base ? `${base}${normalizedPath}` : normalizedPath, window.location.origin).toString();
 }
 
 function getRedirectUri(): string {
@@ -95,13 +78,14 @@ function isStoredAuth(value: unknown): value is StoredAuth {
   );
 }
 
-function createStoredAuth(methodId: string, payload: RelayAuthExchangeResponse): StoredAuth {
+function createStoredAuth(methodId: string, payload: RelayAuthExchangeResponse, serverUrl = getRelayServerUrl()): StoredAuth {
   if (!payload.session.user) {
     throw new Error("Relay auth exchange did not return a user.");
   }
 
   return {
     version: 2,
+    serverUrl,
     methodId,
     accessToken: payload.tokens.accessToken,
     refreshToken: payload.tokens.refreshToken,
@@ -155,7 +139,7 @@ function clearOidcTransaction(): void {
 }
 
 export async function fetchRelayAuthConfig(): Promise<RelayClientAuthConfig> {
-  const response = await fetch(buildApiUrl("/api/auth/config"));
+  const response = await fetch(buildRelayApiUrl("/api/auth/config"));
   if (!response.ok) {
     throw new Error(await response.text());
   }
@@ -168,6 +152,7 @@ export async function startOidcSignIn(method: RelayOidcAuthMethod): Promise<void
   const codeVerifier = createRandomString(48);
   const codeChallenge = await sha256Base64Url(codeVerifier);
   const redirectUri = getRedirectUri();
+  const serverUrl = getRelayServerUrl();
 
   persistOidcTransaction({
     methodId: method.id,
@@ -176,6 +161,7 @@ export async function startOidcSignIn(method: RelayOidcAuthMethod): Promise<void
     redirectUri,
     codeVerifier,
     state,
+    serverUrl,
   });
 
   const url = new URL(method.authorizationEndpoint);
@@ -225,7 +211,7 @@ export async function completeOidcSignIn(): Promise<RelayAuthSession> {
     throw new Error("OIDC provider did not return an id_token.");
   }
 
-  const relayResponse = await fetch(buildApiUrl("/api/auth/oidc/exchange"), {
+  const relayResponse = await fetch(buildRelayApiUrl("/api/auth/oidc/exchange", transaction.serverUrl), {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -240,13 +226,14 @@ export async function completeOidcSignIn(): Promise<RelayAuthSession> {
   }
 
   const payload = (await relayResponse.json()) as RelayAuthExchangeResponse;
-  persistStoredAuth(createStoredAuth(transaction.methodId, payload));
+  persistStoredAuth(createStoredAuth(transaction.methodId, payload, transaction.serverUrl));
   clearOidcTransaction();
   return payload.session;
 }
 
 export async function loginLocalAdmin(methodId: string, email: string, password: string): Promise<RelayAuthSession> {
-  const response = await fetch(buildApiUrl("/api/auth/local/login"), {
+  const serverUrl = getRelayServerUrl();
+  const response = await fetch(buildRelayApiUrl("/api/auth/local/login", serverUrl), {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -258,7 +245,7 @@ export async function loginLocalAdmin(methodId: string, email: string, password:
   }
 
   const payload = (await response.json()) as RelayAuthExchangeResponse;
-  persistStoredAuth(createStoredAuth(methodId, payload));
+  persistStoredAuth(createStoredAuth(methodId, payload, serverUrl));
   return payload.session;
 }
 
@@ -268,7 +255,8 @@ export async function setupLocalAdmin(
   password: string,
   bootstrapToken: string,
 ): Promise<RelayAuthSession> {
-  const response = await fetch(buildApiUrl("/api/auth/local/setup"), {
+  const serverUrl = getRelayServerUrl();
+  const response = await fetch(buildRelayApiUrl("/api/auth/local/setup", serverUrl), {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -280,12 +268,13 @@ export async function setupLocalAdmin(
   }
 
   const payload = (await response.json()) as RelayAuthExchangeResponse;
-  persistStoredAuth(createStoredAuth(methodId, payload));
+  persistStoredAuth(createStoredAuth(methodId, payload, serverUrl));
   return payload.session;
 }
 
 async function refreshStoredAuth(auth: StoredAuth): Promise<StoredAuth | null> {
-  const response = await fetch(buildApiUrl("/api/auth/refresh"), {
+  const serverUrl = auth.serverUrl || getRelayServerUrl();
+  const response = await fetch(buildRelayApiUrl("/api/auth/refresh", serverUrl), {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -303,9 +292,13 @@ async function refreshStoredAuth(auth: StoredAuth): Promise<StoredAuth | null> {
   }
 
   const payload = (await response.json()) as RelayAuthExchangeResponse;
-  const next = createStoredAuth(auth.methodId, payload);
+  const next = createStoredAuth(auth.methodId, payload, serverUrl);
   persistStoredAuth(next);
   return next;
+}
+
+export function getCurrentAuthServerUrl(): string | null {
+  return getStoredAuth()?.serverUrl || null;
 }
 
 export async function getValidAccessToken(options: { forceRefresh?: boolean } = {}): Promise<string | null> {
@@ -324,12 +317,13 @@ export async function getValidAccessToken(options: { forceRefresh?: boolean } = 
 }
 
 export async function restoreRelaySession(): Promise<RelayAuthSession> {
+  const auth = getStoredAuth();
   const accessToken = await getValidAccessToken();
   if (!accessToken) {
     return { user: null, expiresAt: null };
   }
 
-  const response = await fetch(buildApiUrl("/api/session"), {
+  const response = await fetch(buildRelayApiUrl("/api/session", auth?.serverUrl || getRelayServerUrl()), {
     headers: {
       authorization: `Bearer ${accessToken}`,
     },
@@ -345,7 +339,7 @@ export async function restoreRelaySession(): Promise<RelayAuthSession> {
 export async function signOutRelaySession(): Promise<void> {
   const auth = getStoredAuth();
   try {
-    await fetch(buildApiUrl("/api/auth/logout"), {
+    await fetch(buildRelayApiUrl("/api/auth/logout", auth?.serverUrl || getRelayServerUrl()), {
       method: "POST",
       headers: {
         "content-type": "application/json",

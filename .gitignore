@@ -12,6 +12,7 @@ apps/relay-mobile/android/
 apps/relay-mobile/ios/
 apps/relay-mobile/.env.local
 apps/relay-mobile/.test-login-reference.md
+Agent.md
 scripts/start-remote-codex-agent.sh
 npm-debug.log*
 playwright-report

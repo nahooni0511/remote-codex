@@ -1,7 +1,7 @@
 import type { PairingCodeCreateResponse, RelayAuthSession, RelayDeviceSummary } from "@remote-codex/contracts";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { createPairingCode, fetchDevices } from "../lib/relay-api";
@@ -95,6 +95,7 @@ export function DevicesScreen({
   const [error, setError] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<PairingCodeCreateResponse | null>(null);
   const [pairingPending, setPairingPending] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   useEffect(() => {
     if (previewDevices) {
@@ -115,6 +116,25 @@ export function DevicesScreen({
   }, [authToken, previewDevices, session.user?.email]);
 
   const sortedDevices = useMemo(() => sortDevices(devices), [devices]);
+  const hasDevices = sortedDevices.length > 0;
+
+  function handleCreatePairingCode() {
+    if (previewDevices) {
+      setPairingCode({
+        code: "8D1F4A29",
+        ownerLabel: session.user?.email || "preview-user",
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      });
+      return;
+    }
+
+    setPairingPending(true);
+    setError(null);
+    void createPairingCode(authToken, session.user?.email || "remote-codex-owner")
+      .then((result) => setPairingCode(result))
+      .catch((caught: Error) => setError(caught.message))
+      .finally(() => setPairingPending(false));
+  }
 
   return (
     <View style={styles.root}>
@@ -125,10 +145,8 @@ export function DevicesScreen({
               <MaterialCommunityIcons color={palette.deepSoft} name="console-line" size={20} />
               <Text style={styles.brandText}>REMOTE CODEX RELAY</Text>
             </View>
-            <Pressable accessibilityLabel="Sign out" onPress={onSignOut} style={styles.avatarButton}>
-              <View style={styles.avatarInner}>
-                <Ionicons color={palette.deepSoft} name="person" size={18} />
-              </View>
+            <Pressable accessibilityLabel="Open menu" onPress={() => setMenuVisible(true)} style={({ pressed }) => [styles.menuButton, pressed && styles.menuButtonPressed]}>
+              <Ionicons color={palette.deepSoft} name="ellipsis-vertical" size={18} />
             </Pressable>
           </View>
 
@@ -139,40 +157,6 @@ export function DevicesScreen({
             </Text>
           </View>
 
-          <Pressable
-            disabled={pairingPending}
-            onPress={() => {
-              if (previewDevices) {
-                setPairingCode({
-                  code: "8D1F4A29",
-                  ownerLabel: session.user?.email || "preview-user",
-                  expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-                });
-                return;
-              }
-
-              setPairingPending(true);
-              setError(null);
-              void createPairingCode(authToken, session.user?.email || "remote-codex-owner")
-                .then((result) => setPairingCode(result))
-                .catch((caught: Error) => setError(caught.message))
-                .finally(() => setPairingPending(false));
-            }}
-            style={({ pressed }) => [styles.pairingCard, pressed && !pairingPending && styles.pairingCardPressed]}
-          >
-            <View style={styles.pairingTextColumn}>
-              <Text style={styles.pairingKicker}>{pairingPending ? "Authorizing" : "New Connection"}</Text>
-              <Text style={styles.pairingTitle}>{pairingPending ? "Creating Pairing\nCode" : "Create Pairing\nCode"}</Text>
-            </View>
-            <View style={styles.pairingIconShell}>
-              {pairingPending ? (
-                <ActivityIndicator color={palette.deep} size="small" />
-              ) : (
-                <MaterialCommunityIcons color={palette.deep} name="qrcode-scan" size={24} />
-              )}
-            </View>
-          </Pressable>
-
           {pairingCode ? (
             <View style={styles.pairingResultCard}>
               <Text style={styles.pairingResultLabel}>Pairing Code</Text>
@@ -182,11 +166,6 @@ export function DevicesScreen({
             </View>
           ) : null}
 
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionLabel}>Active Nodes ({devices.length})</Text>
-            <Ionicons color={palette.inkSubtle} name="filter-outline" size={18} />
-          </View>
-
           {loading ? (
             <View style={styles.feedbackCard}>
               <ActivityIndicator color={palette.deepSoft} size="large" />
@@ -195,9 +174,33 @@ export function DevicesScreen({
           ) : null}
 
           {!loading && !sortedDevices.length ? (
-            <View style={styles.feedbackCard}>
-              <Text style={styles.feedbackTitle}>No devices yet</Text>
+            <View style={styles.emptyStateSection}>
+              <Text style={styles.sectionLabel}>Active Nodes (0)</Text>
+              <Pressable
+                disabled={pairingPending}
+                onPress={handleCreatePairingCode}
+                style={({ pressed }) => [styles.pairingCard, styles.emptyPairingCard, pressed && !pairingPending && styles.pairingCardPressed]}
+              >
+                <View style={styles.pairingTextColumn}>
+                  <Text style={styles.pairingKicker}>{pairingPending ? "Authorizing" : "New Connection"}</Text>
+                  <Text style={styles.pairingTitle}>{pairingPending ? "Creating Paring\nCode" : "Create Paring\nCode"}</Text>
+                </View>
+                <View style={styles.pairingIconShell}>
+                  {pairingPending ? (
+                    <ActivityIndicator color={palette.deep} size="small" />
+                  ) : (
+                    <MaterialCommunityIcons color={palette.deep} name="qrcode-scan" size={24} />
+                  )}
+                </View>
+              </Pressable>
               <Text style={styles.feedbackText}>Create a pairing code to authorize your first relay node.</Text>
+            </View>
+          ) : null}
+
+          {!loading && hasDevices ? (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>Active Nodes ({devices.length})</Text>
+              <Ionicons color={palette.inkSubtle} name="filter-outline" size={18} />
             </View>
           ) : null}
 
@@ -260,6 +263,43 @@ export function DevicesScreen({
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </ScrollView>
       </SafeAreaView>
+
+      <Modal animationType="fade" transparent visible={menuVisible} onRequestClose={() => setMenuVisible(false)}>
+        <View style={styles.menuModalRoot}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setMenuVisible(false)} />
+          <SafeAreaView edges={["top"]} pointerEvents="box-none" style={styles.menuSafeArea}>
+            <View style={styles.menuAnchor}>
+              <View style={styles.menuCard}>
+                <Pressable
+                  accessibilityRole="menuitem"
+                  onPress={() => {
+                    setMenuVisible(false);
+                    onSignOut();
+                  }}
+                  style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+                >
+                  <Text style={styles.menuItemLabel}>Logout</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="menuitem"
+                  disabled={pairingPending}
+                  onPress={() => {
+                    setMenuVisible(false);
+                    handleCreatePairingCode();
+                  }}
+                  style={({ pressed }) => [
+                    styles.menuItem,
+                    pressed && !pairingPending && styles.menuItemPressed,
+                    pairingPending && styles.menuItemDisabled,
+                  ]}
+                >
+                  <Text style={styles.menuItemLabel}>{pairingPending ? "Creating Paring Code..." : "Create Paring Code"}</Text>
+                </Pressable>
+              </View>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -273,6 +313,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 40,
@@ -294,22 +335,18 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: -0.9,
   },
-  avatarButton: {
+  menuButton: {
     width: 40,
     height: 40,
     borderRadius: 999,
-    borderWidth: 2,
-    borderColor: palette.mint,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.borderSoft,
   },
-  avatarInner: {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
-    backgroundColor: "#fce4cc",
-    alignItems: "center",
-    justifyContent: "center",
+  menuButtonPressed: {
+    opacity: 0.85,
   },
   heroSection: {
     gap: 8,
@@ -431,6 +468,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center",
+  },
+  emptyStateSection: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+  },
+  emptyPairingCard: {
+    width: "100%",
+    maxWidth: 420,
   },
   deviceCard: {
     borderRadius: 32,
@@ -566,5 +613,43 @@ const styles = StyleSheet.create({
     color: palette.danger,
     fontSize: 14,
     lineHeight: 20,
+  },
+  menuModalRoot: {
+    flex: 1,
+  },
+  menuSafeArea: {
+    flex: 1,
+  },
+  menuAnchor: {
+    alignItems: "flex-end",
+    paddingHorizontal: 24,
+    paddingTop: 62,
+  },
+  menuCard: {
+    minWidth: 220,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.98)",
+    padding: 6,
+    shadowColor: "#211b12",
+    shadowOpacity: 0.12,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  menuItem: {
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  menuItemPressed: {
+    backgroundColor: "rgba(15, 97, 93, 0.08)",
+  },
+  menuItemDisabled: {
+    opacity: 0.55,
+  },
+  menuItemLabel: {
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: "600",
   },
 });

@@ -1,28 +1,22 @@
 import type { RelayAuthMethod, RelayAuthSession } from "@remote-codex/contracts";
-import { useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
 
-import { fetchRelayAuthConfig, isLocalAdminMethod, loginLocalAdmin, setupLocalAdmin, startOidcSignIn } from "../lib/auth";
+import { fetchRelayAuthConfig, startOidcSignIn } from "../lib/auth";
+import { getRelayServerUrl, isDefaultRelayServerUrl } from "../lib/relay-server";
 
 function isOidcMethod(method: RelayAuthMethod): method is Extract<RelayAuthMethod, { type: "oidc" }> {
   return method.type === "oidc";
 }
 
-export function LoginPage({
-  session,
-  onSession,
-  onSignOut,
-}: {
-  session: RelayAuthSession;
-  onSession: (session: RelayAuthSession) => void;
-  onSignOut: () => Promise<void>;
-}) {
-  const [pending, setPending] = useState<"oidc" | "login" | "setup" | null>(null);
+export function LoginPage({ session }: { session: RelayAuthSession }) {
+  const navigate = useNavigate();
+  const [pending, setPending] = useState<"oidc" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [authMethods, setAuthMethods] = useState<RelayAuthMethod[]>([]);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [bootstrapToken, setBootstrapToken] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const relayServerUrl = useMemo(() => getRelayServerUrl(), []);
 
   useEffect(() => {
     void fetchRelayAuthConfig()
@@ -30,97 +24,102 @@ export function LoginPage({
       .catch((caught: Error) => setError(caught.message));
   }, []);
 
-  const oidcMethods = useMemo(() => authMethods.filter(isOidcMethod), [authMethods]);
-  const localAdminMethod = useMemo(() => authMethods.find(isLocalAdminMethod) || null, [authMethods]);
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (menuRef.current && event.target instanceof Node && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [menuOpen]);
+
+  const oidcMethod = useMemo(() => authMethods.find(isOidcMethod) || null, [authMethods]);
+  const showRelayServerUrl = useMemo(() => !isDefaultRelayServerUrl(relayServerUrl), [relayServerUrl]);
 
   if (session.user) {
     return <Navigate to="/devices" replace />;
   }
 
   return (
-    <main className="relayPage relayPageCentered">
-      <section className="relayHero relayCard relayHeroNarrow">
+    <main className="relayPage relayLoginPage">
+      <header className="relayTopBar relayTopBarNarrow">
         <span className="relayKicker">Relay Access</span>
-        <h1>Remote Codex Sign In</h1>
-        <p>Sign in with the auth method advertised by this relay server.</p>
-        <div className="relayActions">
-          {oidcMethods.map((method) => (
-            <button
-              key={method.id}
-              type="button"
-              disabled={pending !== null}
-              onClick={() => {
-                setPending("oidc");
-                setError(null);
-                void startOidcSignIn(method)
-                  .catch((caught: Error) => {
-                    setPending(null);
-                    setError(caught.message);
-                  });
-              }}
-            >
-              {pending === "oidc" ? "Redirecting..." : method.label}
-            </button>
-          ))}
-          <button type="button" className="relayButtonSecondary" onClick={() => void onSignOut()}>
-            Clear Session
+        <div className="relayMenuWrap" ref={menuRef}>
+          <button
+            type="button"
+            className="relayIconButton"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            aria-label="Open menu"
+            onClick={() => setMenuOpen((current) => !current)}
+          >
+            <span className="relayMoreIcon" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+          </button>
+          {menuOpen ? (
+            <div className="relayContextMenu" role="menu">
+              <button
+                type="button"
+                className="relayContextMenuItem"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate("/login/relay-server");
+                }}
+              >
+                Relay Server Settings
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </header>
+
+      <section className="relayCard relayLoginCard">
+        <h1>Remote Codex</h1>
+        <p>Sign in to continue to your connected devices.</p>
+        <div className="relayActions relayLoginActions">
+          <button
+            type="button"
+            disabled={pending !== null || !oidcMethod}
+            onClick={() => {
+              if (!oidcMethod) {
+                return;
+              }
+
+              setPending("oidc");
+              setError(null);
+              void startOidcSignIn(oidcMethod).catch((caught: Error) => {
+                setPending(null);
+                setError(caught.message);
+              });
+            }}
+          >
+            {pending === "oidc" ? "Signing In..." : "Sign In"}
           </button>
         </div>
 
-        {localAdminMethod ? (
-          <div className="relayFormStack">
-            <label>
-              <span>Email</span>
-              <input autoComplete="email" onChange={(event) => setEmail(event.target.value)} type="email" value={email} />
-            </label>
-            <label>
-              <span>Password</span>
-              <input autoComplete="current-password" onChange={(event) => setPassword(event.target.value)} type="password" value={password} />
-            </label>
-            <div className="relayActions">
-              <button
-                type="button"
-                disabled={pending !== null || !email.trim() || !password}
-                onClick={() => {
-                  setPending("login");
-                  setError(null);
-                  void loginLocalAdmin(localAdminMethod.id, email.trim(), password)
-                    .then((nextSession) => onSession(nextSession))
-                    .catch((caught: Error) => setError(caught.message))
-                    .finally(() => setPending(null));
-                }}
-              >
-                {pending === "login" ? "Signing In..." : localAdminMethod.label}
-              </button>
-            </div>
-            {localAdminMethod.setupRequired && localAdminMethod.bootstrapEnabled ? (
-              <>
-                <label>
-                  <span>Bootstrap Token</span>
-                  <input onChange={(event) => setBootstrapToken(event.target.value)} type="password" value={bootstrapToken} />
-                </label>
-                <div className="relayActions">
-                  <button
-                    type="button"
-                    disabled={pending !== null || !email.trim() || !password || !bootstrapToken}
-                    onClick={() => {
-                      setPending("setup");
-                      setError(null);
-                      void setupLocalAdmin(localAdminMethod.id, email.trim(), password, bootstrapToken)
-                        .then((nextSession) => onSession(nextSession))
-                        .catch((caught: Error) => setError(caught.message))
-                        .finally(() => setPending(null));
-                    }}
-                  >
-                    {pending === "setup" ? "Creating Admin..." : "Create First Admin"}
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
-        ) : null}
-
-        {error ? <div className="relayErrorText">{error}</div> : null}
+        {showRelayServerUrl ? <p className="relayLoginServerUrl">{relayServerUrl}</p> : null}
+        {!oidcMethod && !error ? <p className="relayMeta">This relay server does not advertise an OIDC sign-in method.</p> : null}
+        {error ? <p className="relayErrorText">{error}</p> : null}
       </section>
     </main>
   );

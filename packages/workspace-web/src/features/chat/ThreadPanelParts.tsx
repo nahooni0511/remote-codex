@@ -8,6 +8,14 @@ import type {
   UserInputRequestPayload,
 } from "@remote-codex/contracts";
 import { renderEventForChannel } from "@remote-codex/client-core";
+import {
+  buildInitialOtherValues,
+  buildInitialSelections,
+  formatChangedFileDelta,
+  formatEffortLabel,
+  formatSubmittedAnswer,
+  summarizeChangedFile,
+} from "@remote-codex/workspace-core";
 import { useEffect, useState } from "react";
 
 import { Button } from "../../components/ui/Button";
@@ -102,58 +110,7 @@ export function AttachmentChips({
   );
 }
 
-export function formatEffortLabel(effort: string | null | undefined): string {
-  if (!effort) {
-    return "자동";
-  }
-
-  if (effort === "minimal") {
-    return "최소";
-  }
-  if (effort === "low") {
-    return "낮음";
-  }
-  if (effort === "medium") {
-    return "보통";
-  }
-  if (effort === "high") {
-    return "높음";
-  }
-  if (effort === "xhigh") {
-    return "매우 높음";
-  }
-
-  return effort;
-}
-
-function summarizeFileChange(file: ChangedFileRecord): string {
-  if (file.isUntracked || file.status === "??") {
-    return "추가함";
-  }
-  if (file.status.includes("D")) {
-    return "삭제함";
-  }
-  if (file.status.includes("R")) {
-    return "이동함";
-  }
-  return "편집함";
-}
-
-function formatFileDelta(file: ChangedFileRecord): string {
-  if (file.insertions === null && file.deletions === null) {
-    return "";
-  }
-
-  const parts: string[] = [];
-  if (file.insertions !== null) {
-    parts.push(`+${file.insertions}`);
-  }
-  if (file.deletions !== null) {
-    parts.push(`-${file.deletions}`);
-  }
-
-  return parts.join(" ");
-}
+export { formatEffortLabel };
 
 function TurnSummaryCard({
   summary,
@@ -190,11 +147,11 @@ function TurnSummaryCard({
       {summary.changedFiles.length ? (
         <div className={styles.summaryFiles}>
           {summary.changedFiles.map((file) => {
-            const delta = formatFileDelta(file);
+            const delta = formatChangedFileDelta(file);
             return (
               <div key={`${file.path}:${file.status}`} className={styles.summaryFileRow}>
                 <span>
-                  {summarizeFileChange(file)} {file.path}
+                  {summarizeChangedFile(file)} {file.path}
                 </span>
                 {delta ? <span className={styles.summaryDelta}>{delta}</span> : null}
               </div>
@@ -211,35 +168,6 @@ function TurnSummaryCard({
       ) : null}
     </article>
   );
-}
-
-function buildInitialSelections(request: UserInputRequestPayload): Record<string, string> {
-  const entries = request.questions.map((question) => {
-    const submittedValue = request.submittedAnswers?.[question.id]?.answers?.[0]?.trim() || "";
-    if (!submittedValue) {
-      return [question.id, ""];
-    }
-
-    const matchesOption = question.options.some((option) => option.label === submittedValue);
-    return [question.id, matchesOption ? submittedValue : "__other__"];
-  });
-
-  return Object.fromEntries(entries);
-}
-
-function buildInitialOtherValues(request: UserInputRequestPayload): Record<string, string> {
-  const entries = request.questions.map((question) => {
-    const submittedValue = request.submittedAnswers?.[question.id]?.answers?.[0]?.trim() || "";
-    const matchesOption = question.options.some((option) => option.label === submittedValue);
-    return [question.id, submittedValue && !matchesOption ? submittedValue : ""];
-  });
-
-  return Object.fromEntries(entries);
-}
-
-function formatSubmittedAnswer(question: UserInputQuestion, request: UserInputRequestPayload): string | null {
-  const value = request.submittedAnswers?.[question.id]?.answers?.[0]?.trim() || "";
-  return value || null;
 }
 
 function UserInputRequestCard({

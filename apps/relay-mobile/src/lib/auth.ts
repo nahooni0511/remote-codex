@@ -10,9 +10,9 @@ WebBrowser.maybeCompleteAuthSession();
 
 const APP_SCHEME = "remotecodexrelaymobile";
 const STORAGE_VERSION = "remote-codex.relay-auth-v2";
-const CURRENT_SERVER_KEY = `${STORAGE_VERSION}:current-server`;
-const SAVED_SERVERS_KEY = `${STORAGE_VERSION}:saved-servers`;
-const LEGACY_MIGRATION_KEY = `${STORAGE_VERSION}:legacy-cleared`;
+const CURRENT_SERVER_KEY = `${STORAGE_VERSION}.current-server`;
+const SAVED_SERVERS_KEY = `${STORAGE_VERSION}.saved-servers`;
+const LEGACY_MIGRATION_KEY = `${STORAGE_VERSION}.legacy-cleared`;
 const LEGACY_AUTH_KEY = "remote-codex.relay-auth";
 const LEGACY_SELECTED_DEVICE_KEY = "remote-codex.selected-device-id";
 
@@ -30,11 +30,15 @@ export type StoredAuth = {
 let refreshPromise: Promise<StoredAuth | null> | null = null;
 
 function makeSessionKey(serverUrl: string): string {
-  return `${STORAGE_VERSION}:session:${encodeURIComponent(serverUrl)}`;
+  return `${STORAGE_VERSION}.session.${toStorageSafeServerId(serverUrl)}`;
 }
 
 function makeSelectedDeviceKey(serverUrl: string): string {
-  return `${STORAGE_VERSION}:selected-device:${encodeURIComponent(serverUrl)}`;
+  return `${STORAGE_VERSION}.selected-device.${toStorageSafeServerId(serverUrl)}`;
+}
+
+function toStorageSafeServerId(serverUrl: string): string {
+  return normalizeRelayServerUrl(serverUrl).replace(/[^A-Za-z0-9._-]/g, "_");
 }
 
 function buildApiUrl(serverUrl: string, path: string): string {

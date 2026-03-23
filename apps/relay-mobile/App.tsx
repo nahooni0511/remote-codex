@@ -7,6 +7,7 @@ import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { CenteredStatus } from "./src/components/CenteredStatus";
+import { WorkspaceChatScreen, WorkspaceProjectsScreen, WorkspaceThreadsScreen } from "./src/features/workspace/screens";
 import type { StoredAuth } from "./src/lib/auth";
 import {
   clearLegacyAuthStorage,
@@ -31,7 +32,7 @@ import {
 import type { AppStackParamList, AuthStackParamList } from "./src/navigation/types";
 import { DevicesScreen } from "./src/screens/DevicesScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
-import { WorkspaceChatScreen, WorkspaceProjectsScreen, WorkspaceThreadsScreen } from "./src/screens/WorkspaceScreen";
+import { RelayServerSettingsScreen } from "./src/screens/RelayServerSettingsScreen";
 import { styles } from "./src/styles";
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -190,11 +191,20 @@ export default function App() {
             {!authenticated || !storedAuth?.accessToken ? (
               <AuthStack.Navigator screenOptions={{ headerShown: false }}>
                 <AuthStack.Screen name="Login">
-                  {() => (
+                  {({ navigation }) => (
                     <LoginScreen
                       currentServerUrl={serverUrl}
                       onAuthenticated={handleAuthenticated}
-                      onClearSession={() => void handleSignOut()}
+                      onOpenRelayServerSettings={() => navigation.navigate("RelayServerSettings")}
+                      onServerUrlChange={setServerUrlState}
+                    />
+                  )}
+                </AuthStack.Screen>
+                <AuthStack.Screen name="RelayServerSettings">
+                  {({ navigation }) => (
+                    <RelayServerSettingsScreen
+                      currentServerUrl={serverUrl}
+                      onClose={() => navigation.goBack()}
                       onServerUrlChange={setServerUrlState}
                     />
                   )}
@@ -222,7 +232,6 @@ export default function App() {
                       fallbackDeviceId={selectedDeviceId}
                       navigation={navigation}
                       onExitDevice={handleReturnToDevices}
-                      onSignOut={handleSignOut}
                       preview={route.params?.deviceId ? previewWorkspaceByDeviceId[route.params.deviceId] || null : null}
                       route={route}
                     />
@@ -240,7 +249,6 @@ export default function App() {
                     <WorkspaceThreadsScreen
                       authToken={storedAuth.accessToken}
                       navigation={navigation}
-                      onSignOut={handleSignOut}
                       preview={previewWorkspaceByDeviceId[route.params.deviceId] || null}
                       route={route}
                     />
@@ -263,7 +271,6 @@ export default function App() {
                       authToken={storedAuth.accessToken}
                       authUserName={session.user?.email || ""}
                       navigation={navigation}
-                      onSignOut={handleSignOut}
                       preview={previewWorkspaceByDeviceId[route.params.deviceId] || null}
                       route={route}
                     />

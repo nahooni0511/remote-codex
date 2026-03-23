@@ -11,6 +11,7 @@ import type {
 } from "@remote-codex/contracts";
 
 import {
+  createProjectThread,
   fetchConnectToken,
   fetchMessageAttachment,
   fetchThreadMessages,
@@ -66,6 +67,11 @@ type UpdateComposerSettingsOptions = EnsureWorkspaceSessionOptions & {
 type SendThreadMessageOptions = EnsureWorkspaceSessionOptions & {
   threadId: number;
   content: string;
+};
+
+type CreateThreadOptions = EnsureWorkspaceSessionOptions & {
+  projectId: number;
+  title?: string;
 };
 
 type RespondUserInputOptions = EnsureWorkspaceSessionOptions & {
@@ -162,6 +168,77 @@ function updateThreadInProjects(projects: WorkspaceProject[], thread: WorkspaceT
       threads: project.threads.map((entry) => (entry.id === thread.id ? thread : entry)),
     };
   });
+}
+
+function sortThreadsByRecency(threads: WorkspaceThread[]) {
+  return [...threads].sort(
+    (left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt) || right.createdAt.localeCompare(left.createdAt) || right.id - left.id,
+  );
+}
+
+function insertThreadInProjects(projects: WorkspaceProject[], thread: WorkspaceThread): WorkspaceProject[] {
+  return projects.map((project) => {
+    if (project.id !== thread.projectId) {
+      return project;
+    }
+
+    return {
+      ...project,
+      updatedAt: thread.updatedAt,
+      threads: sortThreadsByRecency([thread, ...project.threads.filter((entry) => entry.id !== thread.id)]),
+    };
+  });
+}
+
+function createPreviewThread(preview: PreviewWorkspace, projectId: number, title: string): WorkspaceThread {
+  const project = preview.projects.find((entry) => entry.id === projectId);
+  if (!project) {
+    throw new Error("Project not found.");
+  }
+
+  const nextThreadId =
+    Math.max(
+      0,
+      ...preview.projects.flatMap((entry) => entry.threads.map((thread) => thread.id)),
+      ...Object.keys(preview.threadSnapshotsById).map((value) => Number(value)).filter(Number.isFinite),
+    ) + 1;
+  const now = new Date().toISOString();
+  const thread: WorkspaceThread = {
+    id: nextThreadId,
+    projectId,
+    title,
+    codexThreadId: null,
+    codexModelOverride: null,
+    codexReasoningEffortOverride: null,
+    defaultMode: "default",
+    codexPermissionMode: "default",
+    origin: "local-ui",
+    status: "active",
+    createdAt: now,
+    updatedAt: now,
+    telegramBinding: null,
+    effectiveModel: "gpt-5.4",
+    effectiveReasoningEffort: "medium",
+    running: false,
+    queueDepth: 0,
+    currentMode: "default",
+    composerSettings: {
+      defaultMode: "default",
+      modelOverride: null,
+      reasoningEffortOverride: null,
+      permissionMode: "default",
+    },
+  };
+
+  preview.threadSnapshotsById[nextThreadId] = {
+    thread,
+    messages: [],
+    hasMoreBefore: false,
+    liveStream: null,
+  };
+  preview.projects = insertThreadInProjects(preview.projects, thread);
+  return thread;
 }
 
 function resetEntry(entry: WorkspaceSessionEntry) {
@@ -380,6 +457,38 @@ export async function sendWorkspaceThreadMessage({
     threadId,
     forceRefresh: true,
   });
+}
+
+export async function createWorkspaceThread({
+  authToken,
+  deviceId,
+  projectId,
+  preview = null,
+  title = "New Chat",
+}: CreateThreadOptions) {
+  const nextTitle = title.trim() || "New Chat";
+
+  if (preview) {
+    return createPreviewThread(preview, projectId, nextTitle);
+  }
+
+  const client = await requireClient(authToken, deviceId, preview);
+  const created = await createProjectThread(client, projectId, { title: nextTitle });
+
+  if (!created?.id || typeof created.id !== "number") {
+    throw new Error("The relay returned an invalid thread response.");
+  }
+
+  const entry = getEntry(deviceId);
+  const result = await fetchThreadMessages(client, created.id);
+  const normalized = cacheThreadSnapshot(entry, created.id, normalizeThreadSnapshot(result));
+
+  if (!normalized.thread) {
+    throw new Error("The relay did not return the created thread.");
+  }
+
+  entry.projects = insertThreadInProjects(entry.projects, normalized.thread);
+  return normalized.thread;
 }
 
 export async function updateWorkspaceComposerSettings({

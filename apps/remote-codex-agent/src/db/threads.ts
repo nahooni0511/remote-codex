@@ -25,21 +25,20 @@ import type {
   TelegramThreadBindingRow,
   ThreadRecord,
   ThreadRow,
-} from "../db";
+} from "./types";
+import { db, nowIso } from "./core";
 import {
-  db,
-  getTelegramAuth,
   mapCodexTurnRun,
   mapMessage,
   mapMessageEvent,
   mapMessageEventDelivery,
   mapThread,
-  nowIso,
   resolveDisplayHints,
   resolveEventKind,
   resolveOriginChannel,
   saveTelegramThreadBinding,
-} from "../db";
+} from "./mappers";
+import { getTelegramAuth } from "./settings";
 
 export function createMessageEvent(input: {
   threadId: number;
