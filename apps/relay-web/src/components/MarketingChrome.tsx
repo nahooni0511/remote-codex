@@ -11,7 +11,19 @@ type MarketingTopNavProps = {
 
 export function MarketingTopNav({ activePage, session }: MarketingTopNavProps) {
   const studioEntryPath = getStudioEntryPath(Boolean(session.user));
-  const featuresHref = activePage === "landing" ? "#features" : "/#features";
+  const navItems =
+    activePage === "landing"
+      ? [
+          { label: "Features", href: "#features", external: false },
+          { label: "Setup", href: "#setup", external: false },
+          { label: "Documentation", href: MARKETING_DOCS_URL, external: true },
+        ]
+      : [
+          { label: "Features", href: "/#features", external: false },
+          { label: "Pricing", href: PRICING_PATH, external: false, active: true },
+          { label: "Docs", href: MARKETING_DOCS_URL, external: true },
+          { label: "Changelog", href: MARKETING_CHANGELOG_URL, external: true },
+        ];
 
   return (
     <header className="marketingTopbar">
@@ -21,26 +33,35 @@ export function MarketingTopNav({ activePage, session }: MarketingTopNavProps) {
             remote-codex
           </Link>
           <nav className="marketingNav" aria-label="Marketing navigation">
-            <a className="marketingNavLink" href={featuresHref}>
-              Features
-            </a>
-            <Link className={activePage === "pricing" ? "marketingNavLink marketingNavLinkActive" : "marketingNavLink"} to={PRICING_PATH}>
-              Pricing
-            </Link>
-            <a className="marketingNavLink" href={MARKETING_DOCS_URL} rel="noreferrer" target="_blank">
-              Docs
-            </a>
-            <a className="marketingNavLink" href={MARKETING_CHANGELOG_URL} rel="noreferrer" target="_blank">
-              Changelog
-            </a>
+            {navItems.map((item) =>
+              item.external ? (
+                <a key={item.label} className="marketingNavLink" href={item.href} rel="noreferrer" target="_blank">
+                  {item.label}
+                </a>
+              ) : item.href.startsWith("/") ? (
+                <Link
+                  key={item.label}
+                  className={item.active ? "marketingNavLink marketingNavLinkActive" : "marketingNavLink"}
+                  to={item.href}
+                >
+                  {item.label}
+                </Link>
+              ) : (
+                <a key={item.label} className="marketingNavLink" href={item.href}>
+                  {item.label}
+                </a>
+              ),
+            )}
           </nav>
         </div>
         <div className="marketingTopbarActions">
-          <div className="marketingMenuGlyph" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
+          {activePage === "pricing" ? (
+            <div className="marketingMenuGlyph" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+          ) : null}
           <Link className="marketingStudioButton" to={studioEntryPath}>
             Go to Studio
           </Link>
@@ -50,7 +71,28 @@ export function MarketingTopNav({ activePage, session }: MarketingTopNavProps) {
   );
 }
 
-export function MarketingFooter() {
+export function MarketingFooter({ activePage }: { activePage: "landing" | "pricing" }) {
+  if (activePage === "landing") {
+    return (
+      <footer className="marketingFooter marketingFooterLanding">
+        <div className="marketingFooterInner marketingFooterInnerLanding">
+          <div className="marketingFooterBrand">
+            <strong>Remote Codex</strong>
+          </div>
+          <div className="marketingFooterLinks marketingFooterLinksLanding" aria-label="Footer links">
+            <span className="marketingFooterLink marketingFooterLinkStatic">Privacy</span>
+            <span className="marketingFooterLink marketingFooterLinkStatic">Terms</span>
+            <a className="marketingFooterLink" href={MARKETING_DOCS_URL} rel="noreferrer" target="_blank">
+              GitHub
+            </a>
+            <span className="marketingFooterLink marketingFooterLinkStatic">Status</span>
+          </div>
+          <div className="marketingFooterMeta">© 2024 Remote Codex. The Digital Architect&apos;s Blueprint.</div>
+        </div>
+      </footer>
+    );
+  }
+
   return (
     <footer className="marketingFooter">
       <div className="marketingFooterInner">

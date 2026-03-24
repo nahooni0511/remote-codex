@@ -1,17 +1,93 @@
 import type { Server as HttpServer } from "node:http";
 
+import type { RelayAuthUser } from "@remote-codex/contracts";
 import { WebSocketServer } from "ws";
 import type { BridgeMessage } from "@remote-codex/contracts";
 
 import type { RelayStore } from "./store";
+import {
+  SUBSCRIPTION_REQUIRED_CODE,
+  type RevenueCatService,
+} from "./services/revenuecat-service";
 
-export function attachRelayWebSocketServer(server: HttpServer, store: RelayStore) {
+const BILLING_CACHE_TTL_MS = 5_000;
+
+type BillingCacheEntry = {
+  allowed: boolean;
+  expiresAt: number;
+  pending: Promise<boolean> | null;
+};
+
+function createBillingAccessGuard(revenueCat: RevenueCatService) {
+  const cache = new Map<string, BillingCacheEntry>();
+
+  return async (user: RelayAuthUser): Promise<boolean> => {
+    if (!revenueCat.isConfigured()) {
+      return true;
+    }
+
+    const cached = cache.get(user.id);
+    if (cached?.pending) {
+      return cached.pending;
+    }
+
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.allowed;
+    }
+
+    const pending = revenueCat
+      .getBillingStatus(user)
+      .then((billing) => {
+        const allowed = !billing.enabled || billing.active;
+        cache.set(user.id, {
+          allowed,
+          expiresAt: Date.now() + BILLING_CACHE_TTL_MS,
+          pending: null,
+        });
+        return allowed;
+      })
+      .catch((error) => {
+        cache.delete(user.id);
+        throw error;
+      });
+
+    cache.set(user.id, {
+      allowed: cached?.allowed ?? false,
+      expiresAt: 0,
+      pending,
+    });
+    return pending;
+  };
+}
+
+export function attachRelayWebSocketServer(server: HttpServer, store: RelayStore, revenueCat: RevenueCatService) {
   const wsServer = new WebSocketServer({ server, path: "/ws/bridge" });
+  const hasBillingAccess = createBillingAccessGuard(revenueCat);
 
   wsServer.on("connection", (socket) => {
     let role: "device" | "client" | null = null;
     let deviceId: string | null = null;
     let clientToken: string | null = null;
+    let clientUser: RelayAuthUser | null = null;
+
+    const rejectInactiveSubscription = async () => {
+      if (!clientUser) {
+        return false;
+      }
+
+      const allowed = await hasBillingAccess(clientUser);
+      if (allowed) {
+        return false;
+      }
+
+      store.sendBridgeMessage(socket, {
+        type: "bridge.error",
+        code: SUBSCRIPTION_REQUIRED_CODE,
+        error: "Active subscription required to access remote workspaces.",
+      });
+      socket.close();
+      return true;
+    };
 
     socket.on("message", (data) => {
       void (async () => {
@@ -70,6 +146,14 @@ export function attachRelayWebSocketServer(server: HttpServer, store: RelayStore
             return;
           }
 
+          clientUser = {
+            id: tokenRecord.userId,
+            email: tokenRecord.userEmail,
+          };
+          if (await rejectInactiveSubscription()) {
+            return;
+          }
+
           await store.markConnectTokenUsed(message.token);
           await store.attachClient({
             socket,
@@ -93,6 +177,9 @@ export function attachRelayWebSocketServer(server: HttpServer, store: RelayStore
 
         if (message.type === "bridge.envelope") {
           if (role === "client") {
+            if (await rejectInactiveSubscription()) {
+              return;
+            }
             await store.touchClient(message.envelope.sessionId);
             await store.publishToDeviceChannel(message.envelope.deviceId, message);
             return;
@@ -116,6 +203,9 @@ export function attachRelayWebSocketServer(server: HttpServer, store: RelayStore
             await store.touchDevice(deviceId);
           }
           if (role === "client" && clientToken) {
+            if (await rejectInactiveSubscription()) {
+              return;
+            }
             await store.touchClient(clientToken);
           }
           store.sendBridgeMessage(socket, { type: "pong", at: new Date().toISOString() });

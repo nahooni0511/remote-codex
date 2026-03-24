@@ -1,211 +1,351 @@
-import type { RelayAuthSession } from "@remote-codex/contracts";
-import { Link } from "react-router-dom";
+import { ErrorCode, LogLevel, Purchases, PurchasesError, type Package as RevenueCatPackage } from "@revenuecat/purchases-js";
+import type { RelayAuthSession, RelayBillingStatusResponse } from "@remote-codex/contracts";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
-import { MarketingFooter, MarketingTopNav } from "../components/MarketingChrome";
 import { MARKETING_DOCS_URL } from "../lib/marketing";
 import { getStudioEntryPath } from "../lib/routes";
+import { fetchRelayJson } from "../lib/relay-api";
 
-const plans = [
-  {
-    name: "Standard",
-    accent: "pricingCardLabel",
-    price: "$3",
-    cadence: "/mo",
-    description: "For developers managing individual cloud instances.",
-    buttonLabel: "Get Started",
-    featured: false,
-    features: [
-      "Remote Control Dashboard",
-      "Up to 5 Active Nodes",
-      "Basic AI-to-Cron Translation",
-      "Standard API Access",
-    ],
-  },
-  {
-    name: "Pro Fleet",
-    accent: "pricingCardLabel pricingCardLabelHot",
-    price: "$29",
-    cadence: "/yr",
-    description: "Full orchestration for professional workflows and scale.",
-    buttonLabel: "Select Pro Plan",
-    featured: true,
-    features: [
-      "Unlimited Node Clusters",
-      "Advanced AI Logic Controllers",
-      "Easy Setup Script Generators",
-      "Priority Infrastructure Support",
-      "Custom Webhook Integration",
-    ],
-  },
-] as const;
+const pricingCheckIcon = "https://www.figma.com/api/mcp/asset/e002b5b5-7b43-4f00-bcac-2a8252695f26";
+const pricingLockIcon = "https://www.figma.com/api/mcp/asset/35d5b11d-e2e1-4958-97d5-60be0493bf4c";
 
-const comparisonRows = [
-  { capability: "Parallel Command Execution", standard: "Limited (2)", pro: "Unlimited" },
-  { capability: "Automation Logs Retention", standard: "7 Days", pro: "90 Days" },
-  { capability: "Custom Shell Environments", standard: false, pro: true },
-  { capability: "Dedicated Instance Runner", standard: false, pro: true },
-] as const;
+const pricingFeatures = ["Full Remote Control", "Telegram Alerts", "Unlimited Cron Jobs"] as const;
 
-function CheckIcon() {
-  return (
-    <svg aria-hidden="true" className="pricingCheckIcon" viewBox="0 0 16 16">
-      <path d="M3.5 8.25 6.6 11.35 12.5 5.45" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" />
-    </svg>
-  );
-}
-
-function PricingFeatureIcon() {
-  return (
-    <span className="pricingFeatureBullet" aria-hidden="true">
-      <CheckIcon />
-    </span>
-  );
+function readErrorMessage(caught: unknown): string {
+  return caught instanceof Error ? caught.message : "The billing request failed.";
 }
 
 export function PricingPage({ session }: { session: RelayAuthSession }) {
+  const navigate = useNavigate();
   const studioEntryPath = getStudioEntryPath(Boolean(session.user));
+  const purchasesRef = useRef<Purchases | null>(null);
+  const [billingStatus, setBillingStatus] = useState<RelayBillingStatusResponse | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState(Boolean(session.user));
+  const [purchasePending, setPurchasePending] = useState(false);
+  const [packageState, setPackageState] = useState<{
+    formattedPrice: string | null;
+    hasTrial: boolean;
+    rcPackage: RevenueCatPackage | null;
+  }>({
+    formattedPrice: null,
+    hasTrial: false,
+    rcPackage: null,
+  });
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    Purchases.setLogLevel(LogLevel.Error);
+    return () => {
+      purchasesRef.current?.close();
+      purchasesRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session.user) {
+      setBillingStatus(null);
+      setLoadingStatus(false);
+      setStatusMessage(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingStatus(true);
+    setStatusMessage(null);
+
+    void fetchRelayJson<RelayBillingStatusResponse>("/api/billing/status")
+      .then((result) => {
+        if (!cancelled) {
+          setBillingStatus(result);
+        }
+      })
+      .catch((caught: Error) => {
+        if (!cancelled) {
+          setBillingStatus(null);
+          setStatusMessage(caught.message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingStatus(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session.user?.id]);
+
+  useEffect(() => {
+    if (!session.user || !billingStatus?.enabled || !billingStatus.appUserId || !billingStatus.publicApiKey) {
+      setPackageState({
+        formattedPrice: null,
+        hasTrial: false,
+        rcPackage: null,
+      });
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadCatalog = async () => {
+      try {
+        const purchases = getPurchasesClient({
+          appUserId: billingStatus.appUserId!,
+          publicApiKey: billingStatus.publicApiKey!,
+        });
+        const offerings = await purchases.getOfferings({
+          offeringIdentifier: billingStatus.offeringLookupKey || undefined,
+        });
+        const offering = billingStatus.offeringLookupKey
+          ? offerings.all[billingStatus.offeringLookupKey] || offerings.current
+          : offerings.current;
+        const rcPackage = offering?.availablePackages[0] || null;
+        if (!cancelled) {
+          setPackageState({
+            formattedPrice: rcPackage?.webBillingProduct.price.formattedPrice || null,
+            hasTrial: rcPackage?.webBillingProduct.freeTrialPhase !== null,
+            rcPackage,
+          });
+        }
+      } catch (caught) {
+        if (!cancelled) {
+          setPackageState({
+            formattedPrice: null,
+            hasTrial: false,
+            rcPackage: null,
+          });
+          setStatusMessage(readErrorMessage(caught));
+        }
+      }
+    };
+
+    void loadCatalog();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    billingStatus?.appUserId,
+    billingStatus?.enabled,
+    billingStatus?.offeringLookupKey,
+    billingStatus?.publicApiKey,
+    session.user,
+  ]);
+
+  function getPurchasesClient(input: {
+    appUserId: string;
+    publicApiKey: string;
+  }) {
+    if (purchasesRef.current && purchasesRef.current.getAppUserId() === input.appUserId) {
+      return purchasesRef.current;
+    }
+
+    if (purchasesRef.current) {
+      purchasesRef.current.close();
+    }
+
+    purchasesRef.current = Purchases.configure({
+      apiKey: input.publicApiKey,
+      appUserId: input.appUserId,
+      flags: {
+        collectAnalyticsEvents: false,
+        storeLoadTime: "purchase_start",
+      },
+    });
+
+    return purchasesRef.current;
+  }
+
+  async function handlePurchase() {
+    if (!session.user) {
+      navigate(studioEntryPath);
+      return;
+    }
+
+    if (!billingStatus?.enabled || !billingStatus.publicApiKey || !billingStatus.appUserId) {
+      setStatusMessage("Billing is not configured yet. Please finish the RevenueCat setup first.");
+      return;
+    }
+
+    if (!packageState.rcPackage) {
+      setStatusMessage("Checkout package is still loading. Please try again in a moment.");
+      return;
+    }
+
+    setPurchasePending(true);
+    setStatusMessage(null);
+
+    try {
+      const purchases = getPurchasesClient({
+        appUserId: billingStatus.appUserId,
+        publicApiKey: billingStatus.publicApiKey,
+      });
+      const result = await purchases.purchase({
+        rcPackage: packageState.rcPackage,
+        customerEmail: session.user.email || undefined,
+        selectedLocale: navigator.language || "en-US",
+        skipSuccessPage: true,
+      });
+      const entitlementLookupKey = billingStatus.entitlementLookupKey || "pro";
+      const nextActive = Boolean(result.customerInfo.entitlements.active[entitlementLookupKey]);
+
+      setBillingStatus((current) => (current ? { ...current, active: nextActive } : current));
+
+      if (nextActive) {
+        navigate(studioEntryPath);
+        return;
+      }
+
+      setStatusMessage("Purchase completed, but the entitlement is not active yet. Refresh and try opening Studio again.");
+    } catch (caught) {
+      if (caught instanceof PurchasesError && caught.errorCode === ErrorCode.UserCancelledError) {
+        setStatusMessage(null);
+      } else {
+        setStatusMessage(readErrorMessage(caught));
+      }
+    } finally {
+      setPurchasePending(false);
+    }
+  }
+
+  const priceLabel = packageState.formattedPrice || "$120";
+  const billingReady = Boolean(
+    billingStatus?.enabled && billingStatus.publicApiKey && billingStatus.appUserId && packageState.rcPackage,
+  );
+  const primaryButtonLabel = !session.user
+    ? "Sign In to Subscribe"
+    : loadingStatus
+      ? "Checking Subscription..."
+      : billingStatus?.active
+        ? "Open Studio"
+        : purchasePending
+          ? "Launching Checkout..."
+          : billingReady
+            ? "Start Subscription"
+            : "Billing Setup Pending";
+  const helperText = billingStatus?.active
+    ? "Subscription active. Remote access is unlocked for this account."
+    : packageState.hasTrial
+      ? "Includes trial access before billing begins."
+      : "Secure checkout with instant activation after purchase.";
 
   return (
-    <main className="marketingPage">
-      <MarketingTopNav activePage="pricing" session={session} />
+    <main className="marketingPage pricingSinglePage">
+      <header className="pricingSingleTopbar">
+        <div className="pricingSingleTopbarInner">
+          <Link className="pricingSingleBrand" to="/">
+            Remote Codex
+          </Link>
 
-      <section className="marketingSection pricingHero">
-        <div className="marketingSectionFrame marketingSectionFrameCentered">
-          <h1 className="pricingTitle">
-            Scalable <span>Automation</span>. Predictable Pricing.
-          </h1>
-          <p className="pricingLead">
-            Deploy orchestrated terminal commands across your entire remote fleet. Choose the plan that fits your
-            execution volume.
-          </p>
-          <div className="pricingToggle" aria-hidden="true">
-            <span className="pricingToggleLabel pricingToggleLabelMuted">Monthly</span>
-            <span className="pricingToggleTrack">
-              <span className="pricingToggleThumb" />
+          <nav className="pricingSingleNav" aria-label="Pricing navigation">
+            <a className="pricingSingleNavLink" href={MARKETING_DOCS_URL} rel="noreferrer" target="_blank">
+              Docs
+            </a>
+            <Link className="pricingSingleNavLink" to={studioEntryPath}>
+              Studio
+            </Link>
+            <a className="pricingSingleNavLink" href={MARKETING_DOCS_URL} rel="noreferrer" target="_blank">
+              Community
+            </a>
+            <span className="pricingSingleNavLink pricingSingleNavLinkActive">Pricing</span>
+          </nav>
+
+          <Link className="pricingSingleStudioButton" to={studioEntryPath}>
+            Open Studio
+          </Link>
+        </div>
+      </header>
+
+      <section className="pricingSingleHero">
+        <div className="pricingSingleGlow pricingSingleGlowLeft" aria-hidden="true" />
+        <div className="pricingSingleGlow pricingSingleGlowRight" aria-hidden="true" />
+
+        <div className="pricingSingleHeroInner">
+          <div className="pricingSingleHeading">
+            <h1>Simple, Engineered Pricing.</h1>
+            <p>One tier. Total control. Professional precision for your remote workflows.</p>
+          </div>
+
+          <div className="pricingSingleToggle" aria-hidden="true">
+            <span className="pricingSingleToggleOption">Monthly</span>
+            <span className="pricingSingleToggleOption pricingSingleToggleOptionActive">
+              <span>Annual</span>
+              <span className="pricingSingleToggleSavings">Save $24</span>
             </span>
-            <span className="pricingToggleLabel">Yearly</span>
-            <span className="pricingToggleBadge">Save 20%</span>
           </div>
 
-          <div className="pricingGrid">
-            {plans.map((plan) => (
-              <article key={plan.name} className={plan.featured ? "pricingCard pricingCardFeatured" : "pricingCard"}>
-                {plan.featured ? <span className="pricingPopularBadge">Most Popular</span> : null}
-                <span className={plan.accent}>{plan.name}</span>
-                <div className="pricingPriceRow">
-                  <strong>{plan.price}</strong>
-                  <span>{plan.cadence}</span>
+          <article className="pricingSingleCard">
+            <div className="pricingSingleCardAccent" aria-hidden="true" />
+
+            <div className="pricingSingleCardBody">
+              <div className="pricingSingleCardHeader">
+                <div>
+                  <h2>Pro Studio</h2>
+                  <p>Architect Grade</p>
                 </div>
-                <p className="pricingCardDescription">{plan.description}</p>
-                <ul className="pricingFeatureList">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="pricingFeatureItem">
-                      <PricingFeatureIcon />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link className={plan.featured ? "pricingCardButton pricingCardButtonPrimary" : "pricingCardButton pricingCardButtonGhost"} to={studioEntryPath}>
-                  {plan.buttonLabel}
+                <span className="pricingSingleBadge">Top Tier</span>
+              </div>
+
+              <div className="pricingSinglePriceBlock">
+                <div className="pricingSinglePriceRow">
+                  <strong>{priceLabel}</strong>
+                  <span>/year</span>
+                </div>
+                <p>{helperText}</p>
+              </div>
+
+              <ul className="pricingSingleFeatureList">
+                {pricingFeatures.map((feature) => (
+                  <li key={feature} className="pricingSingleFeatureItem">
+                    <img alt="" src={pricingCheckIcon} />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {session.user && billingStatus?.active ? (
+                <Link className="pricingSinglePrimaryButton" to={studioEntryPath}>
+                  {primaryButtonLabel}
                 </Link>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+              ) : (
+                <button
+                  className="pricingSinglePrimaryButton"
+                  disabled={loadingStatus || purchasePending || (Boolean(session.user) && !billingReady)}
+                  onClick={() => {
+                    void handlePurchase();
+                  }}
+                  type="button"
+                >
+                  {primaryButtonLabel}
+                </button>
+              )}
 
-      <section className="marketingSection pricingFeatureSection">
-        <div className="marketingSectionFrame">
-          <div className="pricingBentoGrid">
-            <article className="pricingBentoCard pricingBentoWide">
-              <span className="pricingBentoIcon pricingBentoIconWide" aria-hidden="true" />
-              <h2>Command Center</h2>
-              <p>
-                A centralized orchestration layer to manage diverse commands across staging, unified runtime, and
-                multi-tenant execution.
-              </p>
-              <div className="pricingTags">
-                <span>LOW-LATENCY</span>
-                <span>MULTI-TENANT</span>
-              </div>
-            </article>
-
-            <article className="pricingBentoCard">
-              <span className="pricingBentoIcon pricingBentoIconSpark" aria-hidden="true" />
-              <h2>AI-to-Cron</h2>
-              <p>Speak your automation. “Back up my DB every Tuesday at 3 AM” becomes an optimized cron job in seconds.</p>
-            </article>
-
-            <article className="pricingBentoCard">
-              <span className="pricingBentoIcon pricingBentoIconBolt" aria-hidden="true" />
-              <h2>Easy Setup</h2>
-              <p>One-line install with no complex configurations. Up and running in under 60 seconds.</p>
-            </article>
-
-            <article className="pricingBentoCard pricingBentoTall">
-              <div>
-                <span className="pricingBentoIcon pricingBentoIconShield" aria-hidden="true" />
-                <h2>Encrypted Tunneling</h2>
-                <p>
-                  Every packet is wrapped in TLS 1.3 with optional hardware-key authentication. Your commands never
-                  travel the open web unencrypted.
-                </p>
-              </div>
-              <div className="pricingTerminalMini">
-                <span className="pricingTerminalMiniLabel">REMOTE-CODEX SECURE TUNNEL</span>
-                <code>
-                  {`$ remote-codex encrypt --target=all\n`}
-                  {`> handshake complete\n`}
-                  {`> tunnel established`}
-                </code>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section className="marketingSection pricingComparisonSection">
-        <div className="marketingSectionFrame pricingComparison">
-          <h2>Detailed Comparison</h2>
-          <div className="pricingTable">
-            <div className="pricingTableRow pricingTableHead">
-              <span>Core Capabilities</span>
-              <span>Standard</span>
-              <span>Pro Fleet</span>
+              <p className="pricingSingleMeta">Remote access gate • Cancel anytime • Activation follows entitlement status</p>
+              {statusMessage ? <p className="pricingSingleMessage pricingSingleMessageError">{statusMessage}</p> : null}
             </div>
-            {comparisonRows.map((row) => (
-              <div key={row.capability} className="pricingTableRow">
-                <span>{row.capability}</span>
-                <span className="pricingTableValue">
-                  {typeof row.standard === "boolean" ? row.standard ? <CheckIcon /> : "×" : row.standard}
-                </span>
-                <span className="pricingTableValue pricingTableValueStrong">
-                  {typeof row.pro === "boolean" ? row.pro ? <CheckIcon /> : "×" : row.pro}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      <section className="marketingSection pricingCtaSection">
-        <div className="marketingSectionFrame">
-          <div className="pricingCtaCard">
-            <h2>Ready to orchestrate?</h2>
-            <p>Join 5,000+ developers automating their remote infrastructure with the Codex engine.</p>
-            <div className="pricingCtaActions">
-              <Link className="pricingCardButton pricingCardButtonPrimary" to={studioEntryPath}>
-                Start Free Trial
-              </Link>
-              <a className="pricingCardButton pricingCardButtonGhost" href={MARKETING_DOCS_URL} rel="noreferrer" target="_blank">
-                Book a Demo
-              </a>
+            <div className="pricingSingleCardFooter">
+              <span>ENCRYPTED_SESSION_v2.4</span>
+              <img alt="" src={pricingLockIcon} />
             </div>
-          </div>
+          </article>
         </div>
       </section>
 
-      <MarketingFooter />
+      <footer className="pricingSingleFooter">
+        <div className="pricingSingleFooterInner">
+          <strong className="pricingSingleFooterBrand">Remote Codex</strong>
+          <div className="pricingSingleFooterLinks" aria-label="Pricing footer links">
+            <span>Terms</span>
+            <span>Privacy</span>
+            <span>Security</span>
+            <span>Status</span>
+          </div>
+          <span className="pricingSingleFooterMeta">© 2024 Remote Codex. Engineered for precision.</span>
+        </div>
+      </footer>
     </main>
   );
 }

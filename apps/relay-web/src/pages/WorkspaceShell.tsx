@@ -12,8 +12,13 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { CenteredStatus } from "../components/CenteredStatus";
 import { RelayWorkspaceDock } from "../components/RelayWorkspaceDock";
-import { STUDIO_BASE_PATH, STUDIO_DEVICES_PATH, STUDIO_LOGIN_PATH } from "../lib/routes";
-import { fetchRelayJson, getSelectedDeviceId } from "../lib/relay-api";
+import {
+  PRICING_PATH,
+  STUDIO_BASE_PATH,
+  STUDIO_DEVICES_PATH,
+  STUDIO_LOGIN_PATH,
+} from "../lib/routes";
+import { fetchRelayJson, getSelectedDeviceId, RelayApiError } from "../lib/relay-api";
 import { BlockedWorkspacePage } from "./BlockedWorkspacePage";
 
 configureWorkspaceBasePath(STUDIO_BASE_PATH);
@@ -26,6 +31,7 @@ export function WorkspaceShell({ session }: { session: RelayAuthSession }) {
   const [loading, setLoading] = useState(true);
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [subscriptionRequired, setSubscriptionRequired] = useState(false);
 
   useEffect(() => {
     if (!session.user) {
@@ -40,6 +46,7 @@ export function WorkspaceShell({ session }: { session: RelayAuthSession }) {
 
     setLoading(true);
     setError(null);
+    setSubscriptionRequired(false);
     setWorkspaceReady(false);
     void fetchRelayJson<DeviceConnectTokenResponse>(`/api/devices/${encodeURIComponent(selectedDeviceId)}/connect-token`, {
       method: "POST",
@@ -48,6 +55,11 @@ export function WorkspaceShell({ session }: { session: RelayAuthSession }) {
         setConnectToken(result);
       })
       .catch((caught: Error) => {
+        if (caught instanceof RelayApiError && caught.code === "SUBSCRIPTION_REQUIRED") {
+          setSubscriptionRequired(true);
+          return;
+        }
+
         setError(caught.message);
       })
       .finally(() => {
@@ -157,6 +169,10 @@ export function WorkspaceShell({ session }: { session: RelayAuthSession }) {
 
   if (error) {
     return <CenteredStatus title="Workspace unavailable" description={error} tone="error" />;
+  }
+
+  if (subscriptionRequired) {
+    return <Navigate to={PRICING_PATH} replace />;
   }
 
   if (!connectToken) {

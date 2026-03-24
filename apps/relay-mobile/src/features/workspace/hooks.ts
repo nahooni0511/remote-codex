@@ -68,6 +68,7 @@ export function useWorkspaceRouteState(authToken: string, deviceId: string | nul
   const [projects, setProjects] = useState<WorkspaceProject[]>(cached?.projects ?? []);
   const [modelOptions, setModelOptions] = useState<WorkspaceModelOption[]>(cached?.modelOptions ?? []);
   const [error, setError] = useState<string | null>(cached?.error ?? (deviceId ? null : "No device selected."));
+  const [errorCode, setErrorCode] = useState<string | null>(cached?.errorCode ?? null);
   const [phase, setPhase] = useState<WorkspaceRoutePhase>(
     deviceId ? (cached ? resolveWorkspacePhase(cached.device, cached.error) : "connecting") : "error",
   );
@@ -91,6 +92,7 @@ export function useWorkspaceRouteState(authToken: string, deviceId: string | nul
     setProjects(nextCached.projects);
     setModelOptions(nextCached.modelOptions);
     setError(nextCached.error);
+    setErrorCode(nextCached.errorCode);
     setPhase(resolveWorkspacePhase(nextCached.device, nextCached.error));
   }, [deviceId, preview]);
 
@@ -109,6 +111,7 @@ export function useWorkspaceRouteState(authToken: string, deviceId: string | nul
       setProjects([]);
       setModelOptions([]);
       setError("No device selected.");
+      setErrorCode(null);
       setPhase("error");
       return () => {
         cancelled = true;
@@ -121,12 +124,14 @@ export function useWorkspaceRouteState(authToken: string, deviceId: string | nul
       setProjects(nextCached.projects);
       setModelOptions(nextCached.modelOptions);
       setError(nextCached.error);
+      setErrorCode(nextCached.errorCode);
       setPhase(resolveWorkspacePhase(nextCached.device, nextCached.error));
     } else {
       setDevice(null);
       setProjects([]);
       setModelOptions([]);
       setError(null);
+      setErrorCode(null);
       setPhase("connecting");
     }
 
@@ -145,6 +150,7 @@ export function useWorkspaceRouteState(authToken: string, deviceId: string | nul
         setProjects(snapshot.projects);
         setModelOptions(snapshot.modelOptions);
         setError(snapshot.error);
+        setErrorCode(snapshot.errorCode);
         setPhase(resolveWorkspacePhase(snapshot.device, snapshot.error));
       })
       .catch((caught) => {
@@ -156,6 +162,9 @@ export function useWorkspaceRouteState(authToken: string, deviceId: string | nul
         setProjects([]);
         setModelOptions([]);
         setError(caught instanceof Error ? caught.message : "The selected device could not be opened.");
+        setErrorCode(
+          caught && typeof caught === "object" && "code" in caught && typeof caught.code === "string" ? caught.code : null,
+        );
         setPhase("error");
       });
 
@@ -167,6 +176,7 @@ export function useWorkspaceRouteState(authToken: string, deviceId: string | nul
   return {
     device,
     error,
+    errorCode,
     modelOptions,
     phase,
     projects,

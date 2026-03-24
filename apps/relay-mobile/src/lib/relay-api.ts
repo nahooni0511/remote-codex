@@ -22,11 +22,13 @@ import { getCurrentServerUrl, getStoredAuth, getValidAccessToken } from "./auth"
 
 export class RelayApiError extends Error {
   status: number | null;
+  code?: string;
 
-  constructor(message: string, status: number | null = null) {
+  constructor(message: string, status: number | null = null, code?: string) {
     super(message);
     this.name = "RelayApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -81,7 +83,15 @@ export async function fetchRelayJson<T>(
   }
 
   if (!response.ok) {
-    throw new RelayApiError(await response.text(), response.status);
+    const raw = await response.text();
+    let payload: { error?: string; code?: string } | null = null;
+    try {
+      payload = JSON.parse(raw) as { error?: string; code?: string };
+    } catch {
+      payload = null;
+    }
+
+    throw new RelayApiError(payload?.error || raw || "Relay API request failed.", response.status, payload?.code);
   }
 
   return (await response.json()) as T;

@@ -167,6 +167,15 @@ export interface DeviceConnectTokenResponse {
 
 export interface PairingCodeCreateResponse extends PairingCodeRecord {}
 
+export interface RelayBillingStatusResponse {
+  enabled: boolean;
+  active: boolean;
+  appUserId: string | null;
+  entitlementLookupKey: string | null;
+  offeringLookupKey: string | null;
+  publicApiKey: string | null;
+}
+
 export interface PairingCodeClaimRequest {
   device: DeviceProfile;
   devicePublicKey: string;

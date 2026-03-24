@@ -2,7 +2,7 @@ import type { AppUpdateApplyResult, AppUpdateStatus } from "@remote-codex/contra
 import type { RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useMemo, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, Linking, Text, View } from "react-native";
 
 import { CenteredStatus } from "../../components/CenteredStatus";
 import { Button, Card, ErrorText } from "../../components/ui";
@@ -37,6 +37,8 @@ type ChatScreenProps = {
   preview?: PreviewWorkspace | null;
   route: RouteProp<AppStackParamList, "Chat">;
 };
+
+const REMOTE_CODEX_PRICING_URL = "https://remote-codex.com/pricing";
 
 function WorkspaceBlockedState({
   authToken,
@@ -122,6 +124,38 @@ function WorkspaceBlockedState({
   );
 }
 
+function WorkspaceSubscriptionRequiredState({
+  message,
+  onBack,
+}: {
+  message: string | null;
+  onBack: () => void;
+}) {
+  return (
+    <View style={styles.stateRoot}>
+      <CenteredStatus
+        description={message || "An active subscription is required to access remote workspaces from web or app."}
+        title="Subscription required"
+      />
+      <View style={styles.stateActions}>
+        <Card tone="muted">
+          <Text style={styles.blockedTitle}>Remote access is locked</Text>
+          <Text style={styles.blockedText}>
+            Subscribe on the web, then come back and reopen this device. Local access is unchanged.
+          </Text>
+          <Button
+            label="Open Pricing"
+            onPress={() => {
+              void Linking.openURL(REMOTE_CODEX_PRICING_URL);
+            }}
+          />
+          <Button label="Back" onPress={onBack} tone="secondary" />
+        </Card>
+      </View>
+    </View>
+  );
+}
+
 export function WorkspaceProjectsScreen({
   authToken,
   fallbackDeviceId,
@@ -131,7 +165,7 @@ export function WorkspaceProjectsScreen({
   route,
 }: ProjectsScreenProps) {
   const deviceId = route.params?.deviceId ?? fallbackDeviceId;
-  const { device, error, phase, projects, retry } = useWorkspaceRouteState(authToken, deviceId, preview);
+  const { device, error, errorCode, phase, projects, retry } = useWorkspaceRouteState(authToken, deviceId, preview);
 
   function handleBackToDevices() {
     void onExitDevice();
@@ -159,6 +193,10 @@ export function WorkspaceProjectsScreen({
   }
 
   if (phase === "error") {
+    if (errorCode === "SUBSCRIPTION_REQUIRED") {
+      return <WorkspaceSubscriptionRequiredState message={error} onBack={handleBackToDevices} />;
+    }
+
     return (
       <View style={styles.stateRoot}>
         <CenteredStatus description={error || "The selected device could not be opened."} title="Workspace unavailable" />
@@ -201,7 +239,7 @@ export function WorkspaceThreadsScreen({
   route,
 }: ThreadsScreenProps) {
   const { deviceId, projectId } = route.params;
-  const { error, phase, projects } = useWorkspaceRouteState(authToken, deviceId, preview);
+  const { error, errorCode, phase, projects } = useWorkspaceRouteState(authToken, deviceId, preview);
   const project = useMemo(() => projects.find((entry) => entry.id === projectId) || null, [projectId, projects]);
   const [creatingThread, setCreatingThread] = useState(false);
   const [threadActionError, setThreadActionError] = useState<string | null>(null);
@@ -244,6 +282,10 @@ export function WorkspaceThreadsScreen({
   }
 
   if (phase === "error" || !project) {
+    if (errorCode === "SUBSCRIPTION_REQUIRED") {
+      return <WorkspaceSubscriptionRequiredState message={error} onBack={handleBackToProjects} />;
+    }
+
     return (
       <View style={styles.stateRoot}>
         <CenteredStatus
@@ -279,7 +321,14 @@ export function WorkspaceChatScreen({
   route,
 }: ChatScreenProps) {
   const { deviceId, projectId, threadId } = route.params;
-  const { device, error: workspaceError, modelOptions, phase, projects } = useWorkspaceRouteState(authToken, deviceId, preview);
+  const {
+    device,
+    error: workspaceError,
+    errorCode,
+    modelOptions,
+    phase,
+    projects,
+  } = useWorkspaceRouteState(authToken, deviceId, preview);
   const {
     activeSheet,
     draft,
@@ -326,6 +375,10 @@ export function WorkspaceChatScreen({
   }
 
   if (phase === "error" || !project || !thread) {
+    if (errorCode === "SUBSCRIPTION_REQUIRED") {
+      return <WorkspaceSubscriptionRequiredState message={workspaceError} onBack={handleBackToThreads} />;
+    }
+
     return (
       <View style={styles.stateRoot}>
         <CenteredStatus

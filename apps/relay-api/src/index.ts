@@ -5,6 +5,7 @@ import path from "node:path";
 import express from "express";
 
 import { registerRelayRoutes } from "./relay/routes";
+import { createRevenueCatService } from "./relay/services/revenuecat-service";
 import { createRelayStore } from "./relay/store";
 import { attachRelayWebSocketServer } from "./relay/ws";
 
@@ -59,10 +60,11 @@ async function main() {
   app.use(express.json({ limit: "2mb" }));
 
   const relayStore = await createRelayStore({ port: PORT });
-  registerRelayRoutes(app, { port: PORT, store: relayStore });
+  const revenueCat = createRevenueCatService();
+  registerRelayRoutes(app, { port: PORT, store: relayStore, revenueCat });
 
   const server = createServer(app);
-  attachRelayWebSocketServer(server, relayStore);
+  attachRelayWebSocketServer(server, relayStore, revenueCat);
 
   const shutdown = async () => {
     await relayStore.close().catch(() => undefined);

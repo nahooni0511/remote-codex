@@ -37,6 +37,7 @@ export type WorkspaceSessionSnapshot = {
   modelOptions: WorkspaceModelOption[];
   loaded: boolean;
   error: string | null;
+  errorCode: string | null;
 };
 
 type WorkspaceSessionEntry = WorkspaceSessionSnapshot & {
@@ -127,6 +128,7 @@ function createEntry(): WorkspaceSessionEntry {
     client: null,
     device: null,
     error: null,
+    errorCode: null,
     loaded: false,
     modelOptions: [],
     pending: null,
@@ -153,6 +155,7 @@ function snapshot(entry: WorkspaceSessionEntry): WorkspaceSessionSnapshot {
     modelOptions: entry.modelOptions,
     loaded: entry.loaded,
     error: entry.error,
+    errorCode: entry.errorCode,
   };
 }
 
@@ -163,7 +166,17 @@ function previewSnapshot(preview: PreviewWorkspace): WorkspaceSessionSnapshot {
     modelOptions: preview.modelOptions,
     loaded: true,
     error: null,
+    errorCode: null,
   };
+}
+
+function readErrorCode(caught: unknown): string | null {
+  if (!caught || typeof caught !== "object" || !("code" in caught)) {
+    return null;
+  }
+
+  const code = (caught as { code?: unknown }).code;
+  return typeof code === "string" && code.trim() ? code : null;
 }
 
 function updateThreadInProjects(projects: WorkspaceProject[], thread: WorkspaceThread): WorkspaceProject[] {
@@ -255,6 +268,7 @@ function resetEntry(entry: WorkspaceSessionEntry) {
   entry.client = null;
   entry.device = null;
   entry.error = null;
+  entry.errorCode = null;
   entry.loaded = false;
   entry.modelOptions = [];
   entry.pending = null;
@@ -349,6 +363,7 @@ export async function ensureWorkspaceSession({
       const connectToken = await fetchConnectToken(authToken, deviceId);
       entry.device = connectToken.device;
       entry.error = null;
+      entry.errorCode = null;
 
       if (connectToken.device.blockedReason) {
         entry.projects = [];
@@ -383,6 +398,7 @@ export async function ensureWorkspaceSession({
       entry.projects = bootstrap.projects || bootstrap.workspace?.projects || [];
       entry.modelOptions = bootstrap.configOptions?.codexModels || [];
       entry.error = null;
+      entry.errorCode = null;
       entry.loaded = true;
       entry.threadCache.clear();
       return snapshot(entry);
@@ -394,7 +410,8 @@ export async function ensureWorkspaceSession({
       entry.projects = [];
       entry.modelOptions = [];
       entry.error = caught instanceof Error ? caught.message : "Failed to load the workspace session.";
-      throw new Error(entry.error);
+      entry.errorCode = readErrorCode(caught);
+      throw (caught instanceof Error ? caught : new Error(entry.error));
     } finally {
       entry.pending = null;
     }

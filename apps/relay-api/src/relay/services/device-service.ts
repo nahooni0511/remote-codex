@@ -3,9 +3,17 @@ import type { Request, Response } from "express";
 
 import { buildWsUrl, getRequestBaseUrl } from "../helpers";
 import type { RelayStore } from "../store";
+import {
+  SUBSCRIPTION_REQUIRED_CODE,
+  type RevenueCatService,
+} from "./revenuecat-service";
 
-export function createRelayDeviceService(options: { port: number; store: RelayStore }) {
-  const { port, store } = options;
+export function createRelayDeviceService(options: {
+  port: number;
+  revenueCat: RevenueCatService;
+  store: RelayStore;
+}) {
+  const { port, revenueCat, store } = options;
 
   return {
     async requireSession(request: Request, response: Response) {
@@ -24,6 +32,15 @@ export function createRelayDeviceService(options: { port: number; store: RelaySt
     async createConnectToken(request: Request, response: Response, deviceId: string): Promise<DeviceConnectTokenResponse | null> {
       const session = await store.requireSession(request, response);
       if (!session) {
+        return null;
+      }
+
+      const billing = await revenueCat.getBillingStatus(session.user);
+      if (billing.enabled && !billing.active) {
+        response.status(402).json({
+          error: "Active subscription required to access remote workspaces.",
+          code: SUBSCRIPTION_REQUIRED_CODE,
+        });
         return null;
       }
 

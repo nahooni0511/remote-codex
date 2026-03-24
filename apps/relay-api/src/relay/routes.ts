@@ -1,23 +1,29 @@
 import type { Express } from "express";
 
 import { createRelayAuthController } from "./controllers/auth-controller";
+import { createRelayBillingController } from "./controllers/billing-controller";
 import { createRelayDeviceController } from "./controllers/device-controller";
 import { createHealthController } from "./controllers/health-controller";
 import { createRelayPairingController } from "./controllers/pairing-controller";
 import { createRouteHandler } from "./controllers/route-handler";
 import { createRelayAuthService } from "./services/auth-service";
+import { createRelayBillingService } from "./services/billing-service";
 import { createRelayDeviceService } from "./services/device-service";
 import { createRelayPairingService } from "./services/pairing-service";
+import type { RevenueCatService } from "./services/revenuecat-service";
 import type { RelayStore } from "./store";
 
-export function registerRelayRoutes(app: Express, options: { port: number; store: RelayStore }) {
+export function registerRelayRoutes(app: Express, options: { port: number; revenueCat: RevenueCatService; store: RelayStore }) {
+  const { revenueCat } = options;
   const healthController = createHealthController();
   const authController = createRelayAuthController(createRelayAuthService(options));
-  const deviceController = createRelayDeviceController(createRelayDeviceService(options));
+  const billingController = createRelayBillingController(createRelayBillingService({ revenueCat, store: options.store }));
+  const deviceController = createRelayDeviceController(createRelayDeviceService({ ...options, revenueCat }));
   const pairingController = createRelayPairingController(createRelayPairingService(options));
 
   app.get("/api/health", createRouteHandler(healthController.getHealth));
   app.get("/api/session", createRouteHandler(authController.getSession));
+  app.get("/api/billing/status", createRouteHandler(billingController.getBillingStatus));
   app.get("/api/auth/config", createRouteHandler(authController.getConfig));
   app.post("/api/auth/oidc/exchange", createRouteHandler(authController.exchangeOidc));
   app.get("/api/auth/local/setup-status", createRouteHandler(authController.getLocalSetupStatus));
