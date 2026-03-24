@@ -5,7 +5,8 @@ import {
   mergeThreadMessages as mergeMessages,
   shouldClearLiveStreamForMessages,
 } from "@remote-codex/workspace-core";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 
 import type { PreviewWorkspace } from "../../lib/preview";
 import {
@@ -38,7 +39,30 @@ import {
   resolveWorkspacePhase,
 } from "./utils";
 
+function useAppResumeNonce() {
+  const [resumeNonce, setResumeNonce] = useState(0);
+  const previousAppState = useRef<AppStateStatus>(AppState.currentState);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      const lastAppState = previousAppState.current;
+      previousAppState.current = nextAppState;
+
+      if (lastAppState !== "active" && nextAppState === "active") {
+        setResumeNonce((value) => value + 1);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  return resumeNonce;
+}
+
 export function useWorkspaceRouteState(authToken: string, deviceId: string | null, preview: PreviewWorkspace | null = null) {
+  const resumeNonce = useAppResumeNonce();
   const cached = deviceId ? peekWorkspaceSession(deviceId, preview) : null;
   const [device, setDevice] = useState(cached?.device ?? null);
   const [projects, setProjects] = useState<WorkspaceProject[]>(cached?.projects ?? []);
@@ -110,7 +134,7 @@ export function useWorkspaceRouteState(authToken: string, deviceId: string | nul
       authToken,
       deviceId,
       preview,
-      forceRefresh: reloadNonce > 0,
+      forceRefresh: reloadNonce > 0 || resumeNonce > 0,
     })
       .then((snapshot) => {
         if (cancelled) {
@@ -138,7 +162,7 @@ export function useWorkspaceRouteState(authToken: string, deviceId: string | nul
     return () => {
       cancelled = true;
     };
-  }, [authToken, deviceId, preview, reloadNonce]);
+  }, [authToken, deviceId, preview, reloadNonce, resumeNonce]);
 
   return {
     device,

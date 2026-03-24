@@ -326,6 +326,10 @@ export async function ensureWorkspaceSession({
   }
 
   const entry = getEntry(deviceId);
+  if (forceRefresh && entry.pending) {
+    return entry.pending;
+  }
+
   if (forceRefresh) {
     resetEntry(entry);
   }

@@ -4,11 +4,10 @@ import * as AuthSession from "expo-auth-session";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 
-import { getExpoPublicEnv } from "./env";
-
 WebBrowser.maybeCompleteAuthSession();
 
 const APP_SCHEME = "remotecodexrelaymobile";
+const DEFAULT_RELAY_SERVER_URL = "https://relay.remote-codex.com";
 const STORAGE_VERSION = "remote-codex.relay-auth-v2";
 const CURRENT_SERVER_KEY = `${STORAGE_VERSION}.current-server`;
 const SAVED_SERVERS_KEY = `${STORAGE_VERSION}.saved-servers`;
@@ -55,7 +54,7 @@ export function getRedirectUri(): string {
 }
 
 export function getDefaultRelayServerUrl(): string {
-  return normalizeRelayServerUrl(getExpoPublicEnv("EXPO_PUBLIC_DEFAULT_RELAY_SERVER_URL"));
+  return normalizeRelayServerUrl(DEFAULT_RELAY_SERVER_URL);
 }
 
 function isStoredAuth(value: unknown): value is StoredAuth {
@@ -160,7 +159,11 @@ export async function removeSavedServerUrl(serverUrl: string): Promise<void> {
   await setSelectedDeviceId(null, normalized);
 
   if ((await getCurrentServerUrl()) === normalized) {
-    await setCurrentServerUrl(defaultServerUrl);
+    if (defaultServerUrl !== normalized) {
+      await setCurrentServerUrl(defaultServerUrl);
+    } else {
+      await SecureStore.deleteItemAsync(CURRENT_SERVER_KEY);
+    }
   }
 }
 
