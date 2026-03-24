@@ -13,12 +13,15 @@ body {
 .relayPage {
   color-scheme: light;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(255, 219, 170, 0.55), transparent 28%),
-    linear-gradient(180deg, #f5f1e8 0%, #fbfaf5 100%);
   color: #211b12;
   min-height: 100vh;
   padding: 2rem;
+}
+
+.relayMarketingPage {
+  background:
+    radial-gradient(circle at top left, rgba(255, 219, 170, 0.55), transparent 28%),
+    linear-gradient(180deg, #f5f1e8 0%, #fbfaf5 100%);
 }
 
 .relayPage a {
@@ -44,14 +47,37 @@ body {
   opacity: 0.5;
 }
 
-.relayButtonGhost {
+.relayButtonGhost,
+.relayButtonSecondary {
   background: rgba(15, 97, 93, 0.12);
   color: #0f615d;
 }
 
-.relayButtonSecondary {
-  background: rgba(15, 97, 93, 0.12);
-  color: #0f615d;
+.relayStudioPage {
+  color-scheme: dark;
+  background:
+    radial-gradient(circle at top left, rgba(255, 140, 90, 0.18), transparent 28%),
+    radial-gradient(circle at top right, rgba(57, 208, 182, 0.14), transparent 30%),
+    linear-gradient(180deg, #071019 0%, var(--bg) 100%);
+  color: var(--text);
+}
+
+.relayStudioPage a {
+  color: var(--teal);
+}
+
+.relayStudioPage button {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: #fff7f0;
+  box-shadow: 0 18px 48px rgba(255, 107, 53, 0.22);
+}
+
+.relayStudioPage .relayButtonGhost,
+.relayStudioPage .relayButtonSecondary {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  box-shadow: none;
 }
 
 .relayPageCentered {
@@ -74,6 +100,12 @@ body {
   box-shadow: 0 20px 50px rgba(19, 57, 56, 0.18);
 }
 
+.relayStudioPage .relayHero {
+  background: linear-gradient(135deg, rgba(8, 13, 19, 0.94) 0%, rgba(11, 20, 30, 0.98) 100%);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+}
+
 .relayHeroNarrow {
   width: min(32rem, 100%);
 }
@@ -84,6 +116,14 @@ body {
   background: rgba(255, 255, 255, 0.94);
   color: #211b12;
   box-shadow: 0 18px 48px rgba(33, 27, 18, 0.08);
+}
+
+.relayStudioPage .relayCard {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(16px);
 }
 
 .relayGrid {
@@ -115,6 +155,14 @@ body {
   font-weight: 600;
 }
 
+.relayStudioPage .relayField span,
+.relayStudioPage .relayMeta,
+.relayStudioPage .relayLoginServerUrl,
+.relayStudioPage .relayPairingExpiry,
+.relayStudioPage .relayPairingHint {
+  color: var(--muted);
+}
+
 .relayField input {
   width: 100%;
   padding: 0.9rem 1rem;
@@ -122,6 +170,18 @@ body {
   border: 1px solid rgba(15, 97, 93, 0.2);
   background: rgba(255, 255, 255, 0.9);
   color: #211b12;
+}
+
+.relayStudioPage .relayField input {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.relayStudioPage .relayField input:focus {
+  border-color: rgba(255, 140, 90, 0.42);
+  box-shadow: 0 0 0 3px rgba(255, 140, 90, 0.12);
+  outline: none;
 }
 
 .relayActions {
@@ -165,6 +225,13 @@ body {
   box-shadow: 0 16px 38px rgba(33, 27, 18, 0.08);
 }
 
+.relayStudioPage .relayIconButton {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  box-shadow: none;
+}
+
 .relayMoreIcon {
   display: grid;
   gap: 0.22rem;
@@ -190,6 +257,12 @@ body {
   box-shadow: 0 18px 40px rgba(33, 27, 18, 0.12);
 }
 
+.relayStudioPage .relayContextMenu {
+  border-color: var(--line);
+  background: rgba(8, 13, 19, 0.98);
+  box-shadow: var(--shadow-sm);
+}
+
 .relayContextMenuItem {
   width: 100%;
   padding: 0.8rem 0.95rem;
@@ -200,8 +273,16 @@ body {
   color: #211b12;
 }
 
+.relayStudioPage .relayContextMenuItem {
+  color: var(--text);
+}
+
 .relayContextMenuItem:hover {
   background: rgba(15, 97, 93, 0.08);
+}
+
+.relayStudioPage .relayContextMenuItem:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .relayLoginCard {
@@ -251,6 +332,11 @@ body {
   background: rgba(255, 255, 255, 0.14);
 }
 
+.relayStudioPage .relayNotice {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .relayPairingCard {
   max-width: 72rem;
   margin: 0 auto 1rem;
@@ -280,6 +366,10 @@ body {
   overflow: hidden;
 }
 
+.relayStudioPage .relayPairingBody {
+  background: linear-gradient(135deg, rgba(255, 140, 90, 0.12), rgba(57, 208, 182, 0.08));
+}
+
 .relayPairingCode {
   display: inline-flex;
   align-items: center;
@@ -296,6 +386,12 @@ body {
   font-weight: 600;
   letter-spacing: 0.18em;
   overflow-wrap: anywhere;
+}
+
+.relayStudioPage .relayPairingCode {
+  background: rgba(5, 9, 14, 0.86);
+  border-color: var(--line);
+  color: var(--teal);
 }
 
 .relayPairingHint {
@@ -344,6 +440,119 @@ body {
   color: #ae402d;
 }
 
+.relayStudioPage .relayStatusOnline {
+  color: var(--teal);
+}
+
+.relayStudioPage .relayStatusOffline,
+.relayStudioPage .relayErrorText {
+  color: var(--danger);
+}
+
+.relayLandingShell {
+  width: min(72rem, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.relayLandingHero {
+  padding: clamp(2rem, 4vw, 3rem);
+  border-radius: 2rem;
+  background:
+    radial-gradient(circle at top right, rgba(19, 57, 56, 0.16), transparent 38%),
+    rgba(255, 255, 255, 0.7);
+  box-shadow: 0 24px 60px rgba(33, 27, 18, 0.08);
+}
+
+.relayLandingHero h1,
+.relayLandingHero p {
+  margin: 0;
+}
+
+.relayLandingHero h1 {
+  max-width: 16ch;
+  font-size: clamp(2.8rem, 7vw, 5rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.relayLandingHero p {
+  max-width: 48rem;
+  margin-top: 1rem;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: #54483c;
+}
+
+.relayMarketingButton,
+.relayMarketingLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.85rem 1.3rem;
+  border-radius: 999px;
+  text-decoration: none;
+}
+
+.relayMarketingButton {
+  background: #0f615d;
+  color: #f8f5ee;
+}
+
+.relayMarketingLink {
+  color: #0f615d;
+  background: rgba(15, 97, 93, 0.1);
+}
+
+.relayInstallCard {
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1.25rem;
+  background: rgba(19, 57, 56, 0.06);
+}
+
+.relayInstallLabel {
+  display: inline-block;
+  margin-bottom: 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #655647;
+}
+
+.relayInstallCommand {
+  display: block;
+  overflow-x: auto;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  background: rgba(19, 27, 36, 0.94);
+  color: #f5efe8;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.relayLandingGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+}
+
+.relayLandingCard {
+  padding: 1.35rem;
+  border-radius: 1.4rem;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 18px 46px rgba(33, 27, 18, 0.08);
+}
+
+.relayLandingCard strong {
+  display: block;
+  line-height: 1.5;
+}
+
 @media (max-width: 640px) {
   .relayPage {
     padding: 1rem;
@@ -356,5 +565,13 @@ body {
   .relayLoginCard,
   .relaySettingsCard {
     padding: 1.5rem;
+  }
+
+  .relayLandingHero h1 {
+    max-width: none;
+  }
+
+  .relayInstallCommand {
+    font-size: 0.84rem;
   }
 }

@@ -1,6 +1,7 @@
 import { Icon, navigateWithTransition } from "@remote-codex/workspace-web";
 import { useNavigate } from "react-router-dom";
 
+import { STUDIO_DEVICES_PATH } from "../lib/routes";
 import { setSelectedDeviceId } from "../lib/relay-api";
 
 export function RelayWorkspaceDock({
@@ -21,7 +22,7 @@ export function RelayWorkspaceDock({
       aria-label={`${deviceName}에서 다른 device로 전환`}
       onClick={() => {
         setSelectedDeviceId(null);
-        navigateWithTransition(navigate, "/devices");
+        navigateWithTransition(navigate, STUDIO_DEVICES_PATH);
       }}
     >
       <Icon name="refresh" />

@@ -2,6 +2,7 @@ import type { AppUpdateApplyResult, AppUpdateStatus, RelayDeviceSummary } from "
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { STUDIO_DEVICES_PATH } from "../lib/routes";
 import { fetchRelayJson, setSelectedDeviceId } from "../lib/relay-api";
 
 export function BlockedWorkspacePage({ device }: { device: RelayDeviceSummary }) {
@@ -11,7 +12,7 @@ export function BlockedWorkspacePage({ device }: { device: RelayDeviceSummary })
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <main className="relayPage relayPageCentered">
+    <main className="relayPage relayStudioPage relayPageCentered">
       <section className="relayHero relayCard relayHeroNarrow">
         <span className="relayKicker">Protocol Blocked</span>
         <h1>{device.displayName}</h1>
@@ -54,7 +55,7 @@ export function BlockedWorkspacePage({ device }: { device: RelayDeviceSummary })
             className="relayButtonGhost"
             onClick={() => {
               setSelectedDeviceId(null);
-              navigate("/devices");
+              navigate(STUDIO_DEVICES_PATH);
             }}
           >
             Back to Devices

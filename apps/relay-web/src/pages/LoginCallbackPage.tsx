@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { CenteredStatus } from "../components/CenteredStatus";
 import { completeOidcSignIn } from "../lib/auth";
+import { STUDIO_DEVICES_PATH } from "../lib/routes";
 
 export function LoginCallbackPage({ onSession }: { onSession: (session: RelayAuthSession) => void }) {
   const navigate = useNavigate();
@@ -13,7 +14,7 @@ export function LoginCallbackPage({ onSession }: { onSession: (session: RelayAut
     void completeOidcSignIn()
       .then((session) => {
         onSession(session);
-        navigate("/devices", { replace: true });
+        navigate(STUDIO_DEVICES_PATH, { replace: true });
       })
       .catch((caught: Error) => {
         setError(caught.message);

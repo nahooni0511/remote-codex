@@ -176,13 +176,51 @@ export class CodexTurnInterruptedError extends Error {
   }
 }
 
-function getBundledCodexBin(): string | null {
+function resolveCodexBinFromPackage(packageJsonPath: string): string | null {
+  try {
+    const packageRoot = path.dirname(packageJsonPath);
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as {
+      bin?: string | Record<string, string>;
+    };
+    const relativeBin =
+      typeof packageJson.bin === "string"
+        ? packageJson.bin
+        : typeof packageJson.bin?.codex === "string"
+          ? packageJson.bin.codex
+          : null;
+    if (!relativeBin) {
+      return null;
+    }
+
+    const candidate = path.join(packageRoot, relativeBin);
+    return fs.existsSync(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveBundledCodexBin(searchPaths: string[] = [repoRoot, __dirname, process.cwd()]): string | null {
+  try {
+    const packageJsonPath = require.resolve("@openai/codex/package.json", {
+      paths: searchPaths,
+    });
+    const resolved = resolveCodexBinFromPackage(packageJsonPath);
+    if (resolved) {
+      return resolved;
+    }
+  } catch {
+    // Fall back to legacy .bin lookup below.
+  }
+
   const cwd = repoRoot;
-  const candidate = process.platform === "win32"
-    ? path.join(cwd, "node_modules", ".bin", "codex.cmd")
-    : path.join(cwd, "node_modules", ".bin", "codex");
+  const candidate =
+    process.platform === "win32" ? path.join(cwd, "node_modules", ".bin", "codex.cmd") : path.join(cwd, "node_modules", ".bin", "codex");
 
   return fs.existsSync(candidate) ? candidate : null;
+}
+
+function getBundledCodexBin(): string | null {
+  return resolveBundledCodexBin();
 }
 
 function getCodexBinPath(): string {

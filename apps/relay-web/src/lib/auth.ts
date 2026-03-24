@@ -7,6 +7,7 @@ import type {
   RelayOidcAuthMethod,
 } from "@remote-codex/contracts";
 
+import { STUDIO_LOGIN_CALLBACK_PATH } from "./routes";
 import { buildRelayApiUrl, getRelayServerUrl, sanitizeRelayServerUrlForCurrentHost } from "./relay-server";
 
 const STORAGE_KEY = "remote-codex:relay-web-auth-v2";
@@ -42,7 +43,7 @@ export function isLocalAdminMethod(method: RelayAuthMethod): method is RelayLoca
 }
 
 function getRedirectUri(): string {
-  return new URL("/login/callback", window.location.origin).toString();
+  return new URL(STUDIO_LOGIN_CALLBACK_PATH, window.location.origin).toString();
 }
 
 function base64Url(input: Uint8Array): string {

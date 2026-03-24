@@ -95,3 +95,11 @@ test("resolveRuntimeRestartTarget keeps the current executable and script argume
     env: { TEST_ENV: "1" },
   });
 });
+
+test("isManagedRuntimeService detects launchd-managed mode", async () => {
+  const processControlModule = await import(`../src/services/runtime/process-control.ts?service-mode=${Date.now()}`);
+
+  assert.equal(processControlModule.isManagedRuntimeService({ REMOTE_CODEX_SERVICE_MODE: "launchd" }), true);
+  assert.equal(processControlModule.isManagedRuntimeService({ REMOTE_CODEX_SERVICE_MODE: "other" }), false);
+  assert.equal(processControlModule.isManagedRuntimeService({}), false);
+});

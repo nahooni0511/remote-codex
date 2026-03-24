@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { STUDIO_LOGIN_PATH } from "../lib/routes";
 import { DEFAULT_RELAY_SERVER_URL, getRelayServerUrl, setRelayServerUrl } from "../lib/relay-server";
 
 export function RelayServerSettingsPage() {
@@ -9,7 +10,7 @@ export function RelayServerSettingsPage() {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <main className="relayPage">
+    <main className="relayPage relayStudioPage">
       <header className="relayTopBar relayTopBarNarrow">
         <div>
           <span className="relayKicker">Relay Access</span>
@@ -19,7 +20,7 @@ export function RelayServerSettingsPage() {
           type="button"
           className="relayButtonSecondary"
           onClick={() => {
-            navigate("/login", { replace: true });
+            navigate(STUDIO_LOGIN_PATH, { replace: true });
           }}
         >
           Back
@@ -46,7 +47,7 @@ export function RelayServerSettingsPage() {
             onClick={() => {
               try {
                 setRelayServerUrl(serverUrl);
-                navigate("/login", { replace: true });
+                navigate(STUDIO_LOGIN_PATH, { replace: true });
               } catch (caught) {
                 setError(caught instanceof Error ? caught.message : "Unable to save the relay server URL.");
               }

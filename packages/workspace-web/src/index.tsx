@@ -21,6 +21,7 @@ export {
   type WorkspaceTransport,
 } from "./lib/api/client";
 export { navigateWithTransition } from "./lib/navigation";
+export { configureWorkspaceBasePath } from "./lib/routes";
 
 export function WorkspaceApp({
   children,

@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 
 import { createApp } from "./app";
 import {
+  isManagedRuntimeService,
   registerRuntimeRestartHandler,
   resolveRuntimeRestartTarget,
   spawnRuntimeRestartTarget,
@@ -53,14 +54,19 @@ process.on("SIGTERM", () => {
 });
 
 registerRuntimeRestartHandler(async (reason) => {
-  const target = resolveRuntimeRestartTarget();
-  if (!target) {
-    throw new Error("Restart target is not available in the current runtime.");
-  }
-
   const closed = await closeRuntime(reason);
   if (!closed) {
     return;
+  }
+
+  if (isManagedRuntimeService()) {
+    process.exit(0);
+    return;
+  }
+
+  const target = resolveRuntimeRestartTarget();
+  if (!target) {
+    throw new Error("Restart target is not available in the current runtime.");
   }
 
   try {

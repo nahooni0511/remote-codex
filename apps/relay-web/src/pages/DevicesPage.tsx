@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { navigateWithTransition } from "@remote-codex/workspace-web";
+import { STUDIO_HOME_PATH } from "../lib/routes";
 import { fetchRelayJson, setSelectedDeviceId } from "../lib/relay-api";
 
 export function DevicesPage({
@@ -35,7 +36,7 @@ export function DevicesPage({
   }, [session.user?.email]);
 
   return (
-    <main className="relayPage">
+    <main className="relayPage relayStudioPage">
       <section className="relayHero">
         <span className="relayKicker">Device Routing</span>
         <h1>Connected Devices</h1>
@@ -102,7 +103,7 @@ export function DevicesPage({
               disabled={!device.connected}
               onClick={() => {
                 setSelectedDeviceId(device.deviceId);
-                navigateWithTransition(navigate, "/", { replace: true });
+                navigateWithTransition(navigate, STUDIO_HOME_PATH, { replace: true });
               }}
             >
               Open Workspace

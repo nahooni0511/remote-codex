@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 
 import { fetchRelayAuthConfig, startOidcSignIn } from "../lib/auth";
+import { STUDIO_DEVICES_PATH, STUDIO_RELAY_SERVER_SETTINGS_PATH } from "../lib/routes";
 import { getRelayServerUrl, isDefaultRelayServerUrl } from "../lib/relay-server";
 
 function isOidcMethod(method: RelayAuthMethod): method is Extract<RelayAuthMethod, { type: "oidc" }> {
@@ -53,11 +54,11 @@ export function LoginPage({ session }: { session: RelayAuthSession }) {
   const showRelayServerUrl = useMemo(() => !isDefaultRelayServerUrl(relayServerUrl), [relayServerUrl]);
 
   if (session.user) {
-    return <Navigate to="/devices" replace />;
+    return <Navigate to={STUDIO_DEVICES_PATH} replace />;
   }
 
   return (
-    <main className="relayPage relayLoginPage">
+    <main className="relayPage relayStudioPage relayLoginPage">
       <header className="relayTopBar relayTopBarNarrow">
         <span className="relayKicker">Relay Access</span>
         <div className="relayMenuWrap" ref={menuRef}>
@@ -83,7 +84,7 @@ export function LoginPage({ session }: { session: RelayAuthSession }) {
                 role="menuitem"
                 onClick={() => {
                   setMenuOpen(false);
-                  navigate("/login/relay-server");
+                  navigate(STUDIO_RELAY_SERVER_SETTINGS_PATH);
                 }}
               >
                 Relay Server Settings

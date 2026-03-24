@@ -15,6 +15,7 @@ import { Button } from "../components/ui/Button";
 import { EmptyState } from "../components/ui/EmptyState";
 import { apiFetch } from "../lib/api/client";
 import { formatRelativeTime } from "../lib/chat";
+import { getSetupPath } from "../lib/routes";
 import { getWorkspaceUserName } from "../lib/workspace";
 import styles from "./ConfigPage.module.css";
 
@@ -259,7 +260,7 @@ export function ConfigPage() {
               ))}
             </div>
             <p className={styles.cardMeta}>
-              Telegram 연결은 선택 사항입니다. 관리가 필요하면 <Link to="/setup">integration 화면</Link>을 사용하세요.
+              Telegram 연결은 선택 사항입니다. 관리가 필요하면 <Link to={getSetupPath()}>integration 화면</Link>을 사용하세요.
             </p>
           </article>
 

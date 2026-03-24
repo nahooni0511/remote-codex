@@ -1,7 +1,7 @@
 import type { ProjectTreeRecord } from "@remote-codex/contracts";
 import { Link, useNavigate } from "react-router-dom";
 
-import { buildProjectPath, buildThreadPath } from "../../lib/routes";
+import { buildProjectPath, buildThreadPath, getNewProjectPath } from "../../lib/routes";
 import { isPlainLeftClick, navigateWithTransition } from "../../lib/navigation";
 import { Button } from "../../components/ui/Button";
 import { Icon } from "../../components/ui/Icon";
@@ -23,6 +23,7 @@ export function ChatSidebar({
   onCreateThread: (projectId: number) => void;
 }) {
   const navigate = useNavigate();
+  const newProjectPath = getNewProjectPath();
 
   return (
     <div className={styles.sidebar}>
@@ -32,13 +33,13 @@ export function ChatSidebar({
           <h2>Projects</h2>
         </div>
         <Link
-          to="/chat/projects/new"
+          to={newProjectPath}
           onClick={(event) => {
             if (!isPlainLeftClick(event)) {
               return;
             }
             event.preventDefault();
-            navigateWithTransition(navigate, "/chat/projects/new");
+            navigateWithTransition(navigate, newProjectPath);
           }}
         >
           <Button type="button" variant="icon" aria-label="새 프로젝트">

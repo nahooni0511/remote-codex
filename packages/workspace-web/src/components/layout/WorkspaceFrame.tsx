@@ -2,17 +2,12 @@ import { NavLink, useNavigate } from "react-router-dom";
 
 import { cx } from "../../lib/classNames";
 import { isPlainLeftClick, navigateWithTransition } from "../../lib/navigation";
+import { getChatPath, getConfigPath, getCronJobsPath } from "../../lib/routes";
 import { useWorkspaceRailSlot } from "../../app/WorkspaceChrome";
 import { Icon } from "../ui/Icon";
 import styles from "./WorkspaceFrame.module.css";
 
 type Section = "chat" | "cron" | "config";
-
-const entries: Array<{ key: Section; label: string; href: string; icon: "chat" | "play" | "settings" }> = [
-  { key: "chat", label: "Chat", href: "/chat", icon: "chat" },
-  { key: "cron", label: "Cron", href: "/cron-jobs", icon: "play" },
-  { key: "config", label: "Config", href: "/config", icon: "settings" },
-];
 
 export function WorkspaceFrame({
   section,
@@ -31,6 +26,11 @@ export function WorkspaceFrame({
 }) {
   const navigate = useNavigate();
   const railSlot = useWorkspaceRailSlot();
+  const entries: Array<{ key: Section; label: string; href: string; icon: "chat" | "play" | "settings" }> = [
+    { key: "chat", label: "Chat", href: getChatPath(), icon: "chat" },
+    { key: "cron", label: "Cron", href: getCronJobsPath(), icon: "play" },
+    { key: "config", label: "Config", href: getConfigPath(), icon: "settings" },
+  ];
 
   return (
     <main className={cx(styles.shell, !sidebar && styles.shellNoSidebar)}>

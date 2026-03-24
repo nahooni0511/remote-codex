@@ -8,7 +8,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { ChatSidebar } from "../features/chat/ChatSidebar";
 import type { ChatNotice } from "../features/chat/notice";
 import { cx } from "../lib/classNames";
-import { buildProjectPath, getFallbackChatPath } from "../lib/routes";
+import { buildProjectPath, getFallbackChatPath, getNewProjectPath } from "../lib/routes";
 import { getWorkspaceUserName } from "../lib/workspace";
 import { resolveChatSelection } from "./chat/chatSelection";
 import { ProjectChatView } from "./chat/ProjectChatView";
@@ -34,7 +34,7 @@ export function ChatPage() {
   } = useAppContext();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [threadNotice, setThreadNotice] = useState<ChatNotice>(null);
-  const isNewProjectRoute = location.pathname === "/chat/projects/new";
+  const isNewProjectRoute = location.pathname === getNewProjectPath();
   const selection = bootstrap ? resolveChatSelection(bootstrap, params.projectId, params.threadId) : { project: null, thread: null };
   const projectController = useProjectViewController({
     bootstrap,

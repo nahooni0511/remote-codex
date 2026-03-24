@@ -1,0 +1,1234 @@
+.marketingPage {
+  min-height: 100vh;
+  background: #060e20;
+  color: #dee5ff;
+  font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+.marketingSection {
+  padding: 96px 24px;
+}
+
+.marketingSectionFrame {
+  width: min(1280px, 100%);
+  margin: 0 auto;
+}
+
+.marketingSectionFrameCentered {
+  display: grid;
+  justify-items: center;
+  gap: 40px;
+}
+
+.marketingBand {
+  padding: 96px 24px;
+  background: #091328;
+  scroll-margin-top: 108px;
+}
+
+.marketingTopbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  backdrop-filter: blur(12px);
+  background: rgba(6, 14, 32, 0.8);
+  border-bottom: 1px solid rgba(64, 72, 93, 0.15);
+  box-shadow: 0 0 40px rgba(222, 229, 255, 0.06);
+}
+
+.marketingTopbarInner {
+  width: min(1280px, 100%);
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.marketingBrandGroup {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.marketingBrand {
+  color: #dee5ff;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  text-decoration: none;
+}
+
+.marketingNav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.marketingNavLink {
+  color: rgba(222, 229, 255, 0.7);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  text-decoration: none;
+}
+
+.marketingNavLink:hover,
+.marketingNavLinkActive {
+  color: #a3a6ff;
+}
+
+.marketingNavLinkActive {
+  padding-bottom: 6px;
+  border-bottom: 2px solid #a3a6ff;
+}
+
+.marketingTopbarActions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.marketingMenuGlyph {
+  width: 20px;
+  display: grid;
+  gap: 3px;
+}
+
+.marketingMenuGlyph span {
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(222, 229, 255, 0.75);
+}
+
+.marketingStudioButton,
+.marketingPrimaryButton,
+.marketingSecondaryButton,
+.pricingCardButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.marketingStudioButton:hover,
+.marketingPrimaryButton:hover,
+.marketingSecondaryButton:hover,
+.pricingCardButton:hover {
+  transform: translateY(-1px);
+}
+
+.marketingStudioButton,
+.marketingPrimaryButton,
+.pricingCardButtonPrimary {
+  background: linear-gradient(135deg, #a3a6ff 0%, #6063ee 100%);
+  color: #0a0081;
+  box-shadow: 0 10px 18px rgba(163, 166, 255, 0.2);
+}
+
+.marketingStudioButton {
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.marketingPrimaryButton,
+.pricingCardButtonPrimary {
+  padding: 16px 32px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.marketingSecondaryButton,
+.pricingCardButtonGhost {
+  border: 1px solid rgba(64, 72, 93, 0.3);
+  background: transparent;
+  color: #dee5ff;
+}
+
+.marketingSecondaryButton {
+  padding: 16px 32px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pricingCardButtonGhost {
+  padding: 16px 24px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.marketingHero {
+  padding-top: 128px;
+  padding-bottom: 96px;
+}
+
+.marketingHeroGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 64px;
+  align-items: center;
+}
+
+.marketingHeroCopy {
+  display: grid;
+  gap: 24px;
+  max-width: 584px;
+}
+
+.marketingHeroBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 5px 13px;
+  border: 1px solid rgba(163, 166, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(163, 166, 255, 0.1);
+  color: #9396ff;
+  font-size: 12px;
+}
+
+.marketingHeroBadge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #a3a6ff;
+  box-shadow: 0 0 14px rgba(163, 166, 255, 0.6);
+}
+
+.marketingHeroTitle {
+  margin: 0;
+  font-size: clamp(48px, 8vw, 72px);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.marketingHeroTitle span {
+  background: linear-gradient(90deg, #a3a6ff 0%, #c180ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.marketingHeroLead {
+  margin: 0;
+  max-width: 458px;
+  color: #a3aac4;
+  font-family: "Manrope", "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 20px;
+  line-height: 1.4;
+}
+
+.marketingHeroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.marketingHeroVisual {
+  position: relative;
+  min-height: 320px;
+}
+
+.marketingTerminalCard {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(64, 72, 93, 0.2);
+  border-radius: 8px;
+  background: #0f1930;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.marketingTerminalCard::before {
+  content: "";
+  position: absolute;
+  inset: -16px;
+  z-index: -1;
+  border-radius: 12px;
+  background: rgba(163, 166, 255, 0.05);
+  filter: blur(32px);
+}
+
+.marketingTerminalTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 13px;
+  background: #141f38;
+  border-bottom: 1px solid rgba(64, 72, 93, 0.1);
+}
+
+.marketingTerminalDots {
+  display: flex;
+  gap: 6px;
+}
+
+.marketingTerminalDots span {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+}
+
+.marketingTerminalDots span:nth-child(1) {
+  background: rgba(255, 110, 132, 0.4);
+}
+
+.marketingTerminalDots span:nth-child(2) {
+  background: rgba(255, 157, 209, 0.4);
+}
+
+.marketingTerminalDots span:nth-child(3) {
+  background: rgba(163, 166, 255, 0.4);
+}
+
+.marketingTerminalFile {
+  color: #a3aac4;
+  font-family: "Inter", "IBM Plex Sans", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.marketingTerminalBody {
+  display: grid;
+  gap: 8px;
+  padding: 24px;
+}
+
+.marketingTerminalRow {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 16px;
+  align-items: center;
+  color: #a3aac4;
+  font-family: "Liberation Mono", "IBM Plex Mono", monospace;
+  font-size: 14px;
+}
+
+.marketingTerminalRow span {
+  opacity: 0.5;
+  color: #9396ff;
+}
+
+.marketingTerminalRow:first-child code {
+  color: #dee5ff;
+}
+
+.marketingPeerCard {
+  position: absolute;
+  right: -32px;
+  bottom: -28px;
+  min-width: 235px;
+  padding: 24px;
+  border: 1px solid rgba(163, 166, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(31, 43, 73, 0.9);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.marketingPeerTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #dee5ff;
+  font-size: 12px;
+  letter-spacing: -0.03em;
+}
+
+.marketingPeerGlyph {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(163, 166, 255, 0.95), rgba(96, 99, 238, 0.9)),
+    #a3a6ff;
+  box-shadow: 0 0 24px rgba(163, 166, 255, 0.3);
+}
+
+.marketingPeerProgress {
+  margin-top: 12px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(64, 72, 93, 0.2);
+  overflow: hidden;
+}
+
+.marketingPeerProgress span {
+  display: block;
+  width: 66%;
+  height: 100%;
+  background: #a3a6ff;
+}
+
+.marketingPeerCard p {
+  margin: 8px 0 0;
+  color: #a3aac4;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.marketingControlGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 96px;
+  align-items: center;
+}
+
+.marketingDeviceStage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 48px;
+}
+
+.marketingPhone {
+  width: 192px;
+  height: 384px;
+  padding: 16px;
+  border: 4px solid rgba(64, 72, 93, 0.3);
+  border-radius: 32px;
+  background: #192540;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.marketingPhoneScreen {
+  height: 100%;
+  padding: 16px;
+  border: 1px solid rgba(64, 72, 93, 0.1);
+  border-radius: 24px;
+  background: #000;
+}
+
+.marketingPhoneHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.marketingPhoneBack {
+  width: 10px;
+  height: 14px;
+  border-left: 2px solid #a3aac4;
+  border-bottom: 2px solid #a3aac4;
+  transform: rotate(45deg);
+}
+
+.marketingPhoneStatus {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #a3a6ff;
+  box-shadow: 0 0 8px #a3a6ff;
+}
+
+.marketingPhoneCard {
+  height: 48px;
+  margin-bottom: 12px;
+  padding: 13px;
+  border: 1px solid rgba(64, 72, 93, 0.1);
+  border-radius: 12px;
+  background: #141f38;
+}
+
+.marketingPhoneCard span {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(163, 166, 255, 0.2);
+}
+
+.marketingPhoneCardMuted {
+  display: grid;
+  place-items: center;
+}
+
+.marketingPhoneCardLabel {
+  color: #a3a6ff;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.marketingConnectionGlyph {
+  color: rgba(163, 166, 255, 0.4);
+  font-size: 18px;
+  letter-spacing: 0.2em;
+}
+
+.marketingNodeConsole {
+  width: 260px;
+  padding: 18px 20px;
+  border: 1px solid rgba(64, 72, 93, 0.2);
+  border-radius: 8px;
+  background: #141f38;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+
+.marketingNodeConsoleHeader {
+  display: block;
+  margin-bottom: 10px;
+  color: #9396ff;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.marketingNodeConsole code {
+  display: block;
+  color: #a3aac4;
+  font-family: "Liberation Mono", "IBM Plex Mono", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.marketingControlCopy {
+  display: grid;
+  gap: 16px;
+}
+
+.marketingSectionLabel {
+  color: #9396ff;
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.marketingControlCopy h2,
+.marketingIntro h2,
+.pricingComparison h2,
+.marketingLaunchCard h2,
+.pricingCtaCard h2 {
+  margin: 0;
+  font-size: clamp(32px, 5vw, 48px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.marketingControlCopy h2 span,
+.pricingTitle span {
+  color: #c180ff;
+}
+
+.marketingControlCopy p,
+.marketingIntro p,
+.marketingAutomationCard p,
+.pricingLead,
+.pricingCardDescription,
+.pricingBentoCard p,
+.pricingCtaCard p,
+.marketingLaunchCard p {
+  margin: 0;
+  color: #a3aac4;
+  font-family: "Manrope", "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.marketingHighlightGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  padding-top: 24px;
+}
+
+.marketingAccentLine {
+  padding: 16px 16px 16px 18px;
+  border-left: 2px solid rgba(163, 166, 255, 0.3);
+  display: grid;
+  gap: 4px;
+}
+
+.marketingAccentLineAlt {
+  border-left-color: rgba(193, 128, 255, 0.3);
+}
+
+.marketingAccentLine strong,
+.pricingBentoCard h2,
+.marketingAutomationCard h3,
+.pricingCardLabel,
+.pricingCardLabelHot {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.marketingAccentLine strong,
+.pricingBentoCard h2,
+.marketingAutomationCard h3,
+.pricingCardLabel,
+.pricingCardLabelHot {
+  margin: 0;
+  display: block;
+}
+
+.marketingAccentLine strong,
+.pricingBentoCard h2,
+.marketingAutomationCard h3 {
+  color: #dee5ff;
+}
+
+.marketingAccentLine span {
+  color: #a3aac4;
+  font-family: "Manrope", "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.marketingAutomationSection {
+  padding-top: 72px;
+}
+
+.marketingIntro {
+  max-width: 720px;
+  display: grid;
+  gap: 16px;
+  text-align: center;
+}
+
+.marketingAutomationGrid {
+  width: min(1232px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: 24px;
+}
+
+.marketingAutomationCard,
+.pricingBentoCard,
+.pricingCard,
+.pricingCtaCard,
+.marketingLaunchCard {
+  border: 1px solid rgba(64, 72, 93, 0.1);
+  border-radius: 8px;
+  background: #0f1930;
+}
+
+.marketingAutomationCard {
+  padding: 33px;
+  display: grid;
+  gap: 18px;
+}
+
+.marketingAutomationCardWide {
+  min-height: 366px;
+}
+
+.marketingCardGlyph,
+.pricingBentoIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: #c180ff;
+}
+
+.marketingAutomationCard h3 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.35;
+}
+
+.marketingCronSnippet {
+  padding: 17px;
+  border: 1px solid rgba(64, 72, 93, 0.2);
+  border-radius: 2px;
+  background: #141f38;
+}
+
+.marketingCronSnippet code,
+.pricingTerminalMini code {
+  color: #c180ff;
+  font-family: "Liberation Mono", "IBM Plex Mono", monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.marketingAutomationFooter {
+  padding-top: 24px;
+}
+
+.marketingAutomationPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 999px;
+  background: rgba(163, 166, 255, 0.08);
+  color: #a3aac4;
+  font-size: 12px;
+}
+
+.marketingStatusList {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.marketingStatusRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 2px;
+  background: #141f38;
+  color: #dee5ff;
+  font-size: 12px;
+}
+
+.marketingStatusRow strong {
+  color: #a3a6ff;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.marketingStatusRowMuted {
+  opacity: 0.6;
+}
+
+.marketingStatusRowMuted strong {
+  color: #ff9dd1;
+}
+
+.marketingLaunchSection {
+  padding-top: 40px;
+  padding-bottom: 96px;
+}
+
+.marketingLaunchCard {
+  padding: 56px 48px 40px;
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  text-align: center;
+  background:
+    radial-gradient(circle at center, rgba(163, 166, 255, 0.08), transparent 45%),
+    linear-gradient(156deg, #0f1930 0%, #050810 100%);
+  border-radius: 24px;
+}
+
+.marketingLaunchCard p,
+.pricingCtaCard p {
+  max-width: 680px;
+}
+
+.marketingRuntimeBadges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 32px;
+  padding-top: 12px;
+  color: rgba(222, 229, 255, 0.5);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+}
+
+.pricingHero {
+  padding-top: 128px;
+  padding-bottom: 96px;
+}
+
+.pricingTitle {
+  margin: 0;
+  max-width: 680px;
+  text-align: center;
+  font-size: clamp(44px, 8vw, 72px);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.pricingLead {
+  max-width: 672px;
+  text-align: center;
+}
+
+.pricingToggle {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 24px;
+}
+
+.pricingToggleLabel {
+  color: #a3a6ff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.pricingToggleLabelMuted {
+  color: rgba(222, 229, 255, 0.6);
+}
+
+.pricingToggleTrack {
+  width: 48px;
+  height: 24px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #192540;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pricingToggleThumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #a3a6ff;
+}
+
+.pricingToggleBadge {
+  padding: 3px 9px;
+  border: 1px solid rgba(163, 166, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(163, 166, 255, 0.1);
+  color: #a3a6ff;
+  font-size: 12px;
+}
+
+.pricingGrid {
+  width: min(1024px, 100%);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  padding-top: 40px;
+}
+
+.pricingCard {
+  position: relative;
+  padding: 33px;
+  display: grid;
+  gap: 18px;
+  background: #091328;
+}
+
+.pricingCardFeatured {
+  background: #0f1930;
+  border: 2px solid rgba(163, 166, 255, 0.3);
+  box-shadow: 0 0 80px rgba(163, 166, 255, 0.05);
+}
+
+.pricingPopularBadge {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: #a3a6ff;
+  color: #0f00a4;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.pricingCardLabel {
+  color: #9396ff;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pricingCardLabelHot {
+  color: #c180ff;
+}
+
+.pricingPriceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.pricingPriceRow strong {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.pricingPriceRow span {
+  color: #a3aac4;
+  font-size: 18px;
+}
+
+.pricingCardDescription {
+  font-size: 14px;
+}
+
+.pricingFeatureList {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.pricingFeatureItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #dee5ff;
+  font-size: 14px;
+}
+
+.pricingFeatureBullet {
+  width: 15px;
+  height: 15px;
+  color: #a3a6ff;
+  display: inline-grid;
+  place-items: center;
+}
+
+.pricingCheckIcon {
+  width: 15px;
+  height: 15px;
+}
+
+.pricingCardButton {
+  width: 100%;
+  padding: 16px 24px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pricingFeatureSection {
+  padding-top: 0;
+}
+
+.pricingBentoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.pricingBentoCard {
+  padding: 33px;
+  display: grid;
+  gap: 16px;
+  background: #141f38;
+}
+
+.pricingBentoWide {
+  grid-column: span 2;
+}
+
+.pricingBentoTall {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(220px, 0.8fr);
+  align-items: start;
+  gap: 32px;
+}
+
+.pricingBentoIcon {
+  border-radius: 6px;
+  background: rgba(163, 166, 255, 0.1);
+}
+
+.pricingBentoIconWide::before,
+.pricingBentoIconSpark::before,
+.pricingBentoIconBolt::before,
+.pricingBentoIconShield::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  display: block;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #a3a6ff, #c180ff);
+}
+
+.pricingTags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pricingTags span {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(163, 166, 255, 0.08);
+  color: #9396ff;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.pricingTerminalMini {
+  align-self: stretch;
+  padding: 17px;
+  border: 1px solid rgba(64, 72, 93, 0.1);
+  border-radius: 8px;
+  background: #0b1222;
+}
+
+.pricingTerminalMiniLabel {
+  display: block;
+  margin-bottom: 12px;
+  color: #a3aac4;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pricingComparisonSection {
+  background: #091328;
+}
+
+.pricingComparison {
+  display: grid;
+  gap: 48px;
+  justify-items: center;
+}
+
+.pricingTable {
+  width: min(896px, 100%);
+  border-bottom: 1px solid rgba(64, 72, 93, 0.1);
+}
+
+.pricingTableRow {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(140px, 1fr));
+  align-items: center;
+  border-top: 1px solid rgba(64, 72, 93, 0.1);
+}
+
+.pricingTableRow span {
+  padding: 24px 0;
+  color: #dee5ff;
+  font-size: 14px;
+}
+
+.pricingTableHead {
+  border-top: 0;
+}
+
+.pricingTableHead span {
+  color: #a3aac4;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pricingTableHead span:nth-child(2) {
+  color: #9396ff;
+  text-align: center;
+}
+
+.pricingTableHead span:nth-child(3) {
+  color: #e5c6ff;
+  text-align: center;
+}
+
+.pricingTableValue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #a3aac4;
+  text-align: center;
+}
+
+.pricingTableValueStrong {
+  color: #dee5ff;
+}
+
+.pricingCtaSection {
+  padding-top: 96px;
+  padding-bottom: 96px;
+}
+
+.pricingCtaCard {
+  padding: 97px;
+  display: grid;
+  justify-items: center;
+  gap: 20px;
+  text-align: center;
+  background:
+    radial-gradient(circle at top right, rgba(163, 166, 255, 0.1), transparent 30%),
+    rgba(163, 166, 255, 0.05);
+  border-color: rgba(163, 166, 255, 0.1);
+  border-radius: 24px;
+}
+
+.pricingCtaActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.marketingFooter {
+  padding: 49px 24px 48px;
+  border-top: 1px solid rgba(64, 72, 93, 0.1);
+  background: #060e20;
+}
+
+.marketingFooterInner {
+  width: min(1280px, 100%);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.marketingFooterBrand {
+  display: grid;
+  gap: 16px;
+}
+
+.marketingFooterBrand strong {
+  font-size: 18px;
+}
+
+.marketingFooterBrand span,
+.marketingFooterLink {
+  color: rgba(222, 229, 255, 0.5);
+  font-family: "Manrope", "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.marketingFooterLinks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 32px;
+}
+
+.marketingFooterLinkStatic {
+  cursor: default;
+}
+
+@media (max-width: 1120px) {
+  .marketingHeroGrid,
+  .marketingControlGrid,
+  .pricingGrid,
+  .pricingBentoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pricingBentoWide,
+  .pricingBentoTall {
+    grid-column: auto;
+  }
+
+  .pricingBentoTall {
+    grid-template-columns: 1fr;
+  }
+
+  .marketingDeviceStage {
+    order: 2;
+  }
+
+  .marketingControlCopy {
+    order: 1;
+  }
+}
+
+@media (max-width: 960px) {
+  .marketingTopbarInner,
+  .marketingFooterInner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .marketingBrandGroup {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .marketingNav,
+  .marketingFooterLinks {
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: flex-start;
+  }
+
+  .marketingSection,
+  .marketingBand,
+  .pricingHero,
+  .pricingCtaSection,
+  .marketingFooter {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .marketingHeroLead,
+  .pricingLead,
+  .marketingControlCopy p,
+  .marketingIntro p,
+  .pricingBentoCard p,
+  .marketingAutomationCard p,
+  .marketingLaunchCard p,
+  .pricingCtaCard p {
+    font-size: 16px;
+  }
+
+  .marketingAutomationGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pricingTableRow {
+    grid-template-columns: minmax(0, 1.7fr) repeat(2, minmax(80px, 1fr));
+    gap: 16px;
+  }
+
+  .pricingCtaCard {
+    padding: 64px 32px;
+  }
+}
+
+@media (max-width: 720px) {
+  .marketingSection,
+  .marketingBand,
+  .pricingHero,
+  .marketingFooter {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .marketingTopbarInner {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .marketingHeroVisual {
+    min-height: 420px;
+  }
+
+  .marketingPeerCard {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    margin-top: 20px;
+  }
+
+  .marketingDeviceStage {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .marketingHighlightGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pricingCard,
+  .pricingBentoCard,
+  .marketingAutomationCard,
+  .marketingLaunchCard,
+  .pricingCtaCard {
+    padding: 24px;
+  }
+
+  .pricingTable {
+    overflow-x: auto;
+  }
+
+  .pricingTableRow {
+    min-width: 560px;
+  }
+}

@@ -2,6 +2,7 @@ import { RelayBridgeClient } from "@remote-codex/client-core";
 import type { DeviceConnectTokenResponse, RelayAuthSession } from "@remote-codex/contracts";
 import {
   WorkspaceApp,
+  configureWorkspaceBasePath,
   configureWorkspaceTransport,
   createRelayWorkspaceTransport,
   resetWorkspaceTransport,
@@ -11,8 +12,11 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { CenteredStatus } from "../components/CenteredStatus";
 import { RelayWorkspaceDock } from "../components/RelayWorkspaceDock";
+import { STUDIO_BASE_PATH, STUDIO_DEVICES_PATH, STUDIO_LOGIN_PATH } from "../lib/routes";
 import { fetchRelayJson, getSelectedDeviceId } from "../lib/relay-api";
 import { BlockedWorkspacePage } from "./BlockedWorkspacePage";
+
+configureWorkspaceBasePath(STUDIO_BASE_PATH);
 
 export function WorkspaceShell({ session }: { session: RelayAuthSession }) {
   const navigate = useNavigate();
@@ -25,12 +29,12 @@ export function WorkspaceShell({ session }: { session: RelayAuthSession }) {
 
   useEffect(() => {
     if (!session.user) {
-      navigate("/login", { replace: true });
+      navigate(STUDIO_LOGIN_PATH, { replace: true });
       return;
     }
 
     if (!selectedDeviceId) {
-      navigate("/devices", { replace: true });
+      navigate(STUDIO_DEVICES_PATH, { replace: true });
       return;
     }
 
@@ -156,7 +160,7 @@ export function WorkspaceShell({ session }: { session: RelayAuthSession }) {
   }
 
   if (!connectToken) {
-    return <Navigate to="/devices" replace />;
+    return <Navigate to={STUDIO_DEVICES_PATH} replace />;
   }
 
   if (connectToken.device.blockedReason) {

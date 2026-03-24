@@ -10,6 +10,10 @@ export type RuntimeRestartTarget = {
 let restartScheduled = false;
 let restartHandler: ((reason: string) => Promise<void>) | null = null;
 
+export function isManagedRuntimeService(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.REMOTE_CODEX_SERVICE_MODE?.trim() === "launchd";
+}
+
 export function resolveRuntimeRestartTarget(input?: {
   execPath?: string;
   argv?: string[];
@@ -50,7 +54,7 @@ export function registerRuntimeRestartHandler(handler: (reason: string) => Promi
 }
 
 export function canScheduleRuntimeRestart(): boolean {
-  return Boolean(restartHandler && resolveRuntimeRestartTarget());
+  return Boolean(restartHandler && (isManagedRuntimeService() || resolveRuntimeRestartTarget()));
 }
 
 export function scheduleRuntimeRestart(reason: string, delayMs = 250): boolean {

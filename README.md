@@ -31,13 +31,24 @@ This section is optimized for the packaged install path, not monorepo developmen
 ### Install
 
 ```bash
-npm install -g @everyground/remote-codex
+./install.sh
 ```
 
-### Run
+The installer:
+
+- ensures Node.js 20+ and npm exist
+- installs `@everyground/remote-codex` through npm into `~/.remote-codex/npm-global`
+- checks Codex login
+- registers a macOS `launchd` service that starts at boot
+
+### Service Commands
 
 ```bash
 remote-codex
+remote-codex status
+remote-codex logs --follow
+remote-codex stop
+remote-codex start
 ```
 
 Then open:
@@ -74,7 +85,7 @@ After starting the local runtime and opening `http://localhost:3000`, the main s
 
 Typical local usage looks like this:
 
-1. Run `remote-codex`
+1. Run `./install.sh` once
 2. Open `http://localhost:3000`
 3. Connect Telegram in `Setup` if you need it
 4. Use Codex in `Chat`
@@ -192,7 +203,8 @@ This README intentionally documents the stable path, not every experimental surf
 
 ### Local web does not open
 
-- Make sure the `remote-codex` process is actually running
+- Check `remote-codex status`
+- If needed, run `remote-codex start`
 - Make sure you are opening `http://localhost:3000`
 - If you changed the port, verify `REMOTE_CODEX_PORT`
 

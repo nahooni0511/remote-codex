@@ -2,7 +2,14 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { EmptyState } from "../components/ui/EmptyState";
 import { useAppContext } from "./AppProvider";
-import { getFallbackChatPath } from "../lib/routes";
+import {
+  buildWorkspacePath,
+  getConfigPath,
+  getCronJobsPath,
+  getFallbackChatPath,
+  getIntegrationsPath,
+  getSetupPath,
+} from "../lib/routes";
 import { ChatPage } from "../pages/ChatPage";
 import { ConfigPage } from "../pages/ConfigPage";
 import { CronPage } from "../pages/CronPage";
@@ -21,16 +28,16 @@ function HomeRoute() {
 export function App() {
   return (
     <Routes>
-      <Route path="/" element={<HomeRoute />} />
-      <Route path="/setup" element={<SetupPage />} />
-      <Route path="/integrations" element={<SetupPage />} />
-      <Route path="/chat" element={<ChatPage />} />
-      <Route path="/chat/projects/new" element={<ChatPage />} />
-      <Route path="/chat/projects/:projectId" element={<ChatPage />} />
-      <Route path="/chat/projects/:projectId/threads/:threadId" element={<ChatPage />} />
-      <Route path="/cron-jobs" element={<CronPage />} />
-      <Route path="/config" element={<ConfigPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path={buildWorkspacePath("/")} element={<HomeRoute />} />
+      <Route path={getSetupPath()} element={<SetupPage />} />
+      <Route path={getIntegrationsPath()} element={<SetupPage />} />
+      <Route path={buildWorkspacePath("/chat")} element={<ChatPage />} />
+      <Route path={buildWorkspacePath("/chat/projects/new")} element={<ChatPage />} />
+      <Route path={buildWorkspacePath("/chat/projects/:projectId")} element={<ChatPage />} />
+      <Route path={buildWorkspacePath("/chat/projects/:projectId/threads/:threadId")} element={<ChatPage />} />
+      <Route path={getCronJobsPath()} element={<CronPage />} />
+      <Route path={getConfigPath()} element={<ConfigPage />} />
+      <Route path="*" element={<Navigate to={buildWorkspacePath("/")} replace />} />
     </Routes>
   );
 }

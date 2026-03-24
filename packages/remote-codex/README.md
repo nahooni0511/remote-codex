@@ -11,13 +11,21 @@ It installs:
 ## Install
 
 ```bash
-npm install -g @everyground/remote-codex
+./install.sh
 ```
 
-## Run
+Run the repository's root `install.sh`. The recommended installer keeps the npm-based distribution path, but installs the package into a managed per-user prefix and registers a macOS `launchd` daemon.
+
+Manual npm installation is still possible, but `install.sh` is the preferred path because it also sets up the background service and boot-time start.
+
+## Service Commands
 
 ```bash
 remote-codex
+remote-codex status
+remote-codex logs --follow
+remote-codex stop
+remote-codex start
 ```
 
 Then open:
@@ -58,3 +66,4 @@ Useful environment variables:
 ## Update Path
 
 The runtime checks npm for new versions of `@everyground/remote-codex` and can apply updates from the local `Config` screen.
+When the runtime is running under `launchd`, the service exits after an update and `launchd` starts the new version automatically.
